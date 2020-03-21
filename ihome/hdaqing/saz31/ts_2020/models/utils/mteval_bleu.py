@@ -36,7 +36,7 @@ def get_bleu_from_joshua(step, path_dst, path_ref, targets, resultdir, num_ref,
 
 
 def get_result_joshua(path_ref, path_tar, num_ref):
-    args = ' '.join([joshua_script, path_tar, path_ref,
+    args = ' '.join(['bash', joshua_script, path_tar, path_ref,
                      str(num_ref), joshua_class])
 
     pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
@@ -51,7 +51,7 @@ def get_result_joshua(path_ref, path_tar, num_ref):
     return result
 
 def get_result_joshua_nonref(path_ref, path_tar):
-    args = ' '.join([joshua_script, path_tar, path_ref,
+    args = ' '.join(['bash', joshua_script, path_tar, path_ref,
                      '1', joshua_class])
 
     pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)

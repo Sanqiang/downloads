@@ -2,7 +2,6 @@ import collections
 import os
 import time
 import numpy as np
-import glob
 import tensorflow as tf
 import wandb
 from models.tpu_models.common import tpu_profiler_hook
@@ -703,7 +702,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                 summary_writer.add_summary(summary, global_step)
 
             if best_score is None or gen_trg_score > best_score:
-                for fl in glob.glob(ckpt + '*'):
+                for fl in tf.gfile.Glob(ckpt + '*'):
                     tf.gfile.Remove(fl)
                     tf.logging.info('remove ckpt file:%s' % fl)
             else:
@@ -720,7 +719,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
             gen_trg_score = infer_worker(ckpt, "")
             if best_score is None or predict_ckpt is None:
                 if gen_trg_score > best_score:
-                    for fl in glob.glob(ckpt + '*'):
+                    for fl in tf.gfile.Glob(ckpt + '*'):
                         tf.gfile.Remove(fl)
                         tf.logging.info('remove ckpt file:%s' % fl)
                 else:
