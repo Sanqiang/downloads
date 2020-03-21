@@ -347,12 +347,13 @@ class TsGraph:
 
             if 'syntax_gen' in self.flags.control_mode and 'bart' not in self.flags.control_mode:
                 template_comp_ids = features['template_comp_ids']
+                template_simp_ids = features['template_simp_ids']
 
                 template_comp_ids = tf.reshape(
                     template_comp_ids,
                     [self.batch_size, self.flags.syntax_level, self.flags.max_syntax_src_len])
                 template_simp_ids = tf.reshape(
-                    template_comp_ids,
+                    template_simp_ids,
                     [self.batch_size, self.flags.syntax_level, self.flags.max_syntax_trg_len])
 
                 if 'syntax_reduce' in self.flags.control_mode:
@@ -380,6 +381,15 @@ class TsGraph:
                 src_embs_addon = tf.reduce_mean(
                     tf.stack(src_embs_addon, axis=1), axis=1)
                 src_embs += src_embs_addon
+            elif 'syntax_gen' in self.flags.control_mode and 'bart' in self.flags.control_mode:
+                template_simp_ids = features['template_simp_ids']
+                template_simp_ids = tf.reshape(
+                    template_simp_ids,
+                    [self.batch_size, self.flags.syntax_level, self.flags.max_syntax_trg_len])
+
+                if 'syntax_reduce' in self.flags.control_mode:
+                    template_simp_ids = template_simp_ids[:, 1:, :]
+                    features['template_simp_ids'] = template_simp_ids
 
             if 'gpt2' in self.flags.model_mode:
                 src_outputs = model.gpt2_encoder(self.hparams, src_embs, encoder_bias=src_bias)
@@ -537,7 +547,7 @@ class TsGraph:
                         self.shared_tensors['guild_bias'] = guild_bias
 
                     syntax_losses = []
-                    template_simp_ids = features['template_simp_ids']
+                    # template_simp_ids = features['template_simp_ids']
 
                     # batch_size = template_simp_ids.shape.as_list()[0]
                     # template_simp_ids = tf.reshape(
