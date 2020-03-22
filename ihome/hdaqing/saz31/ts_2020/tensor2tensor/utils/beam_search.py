@@ -177,7 +177,8 @@ def beam_search(symbols_to_logits_fn,
                 alpha,
                 states=None,
                 eos_id=EOS_ID,
-                stop_early=True):
+                stop_early=True,
+                hard_length_constrain=None):
   """Beam search with length penalties.
 
   Requires a function that can take the currently decoded symbols and return
@@ -395,6 +396,13 @@ def beam_search(symbols_to_logits_fn,
     topk_seq = tf.concat([topk_seq, tf.expand_dims(topk_ids, axis=2)], axis=2)
 
     topk_finished = tf.equal(topk_ids, eos_id)
+    if hard_length_constrain is not None:
+        hard_length_constrain_tile = tf.tile(
+            tf.expand_dims(hard_length_constrain, axis=-1), [1, beam_size * 2])
+        topk_finished = tf.math.logical_and(
+            tf.equal(topk_ids, eos_id),
+            tf.equal(i+1, hard_length_constrain_tile)
+        )
 
     return topk_seq, topk_log_probs, topk_scores, topk_finished, states
 

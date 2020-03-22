@@ -657,6 +657,7 @@ class TsGraph:
                     tf.summary.scalar("loss_decoder", outputs['loss_decoder'])
                     tf.summary.scalar("perplexity_decoder", outputs['perplexity_decoder'])
             else:
+                hard_length_constrain = None
                 eval_batch_size = self.flags.eval_batch_size
                 if self.flags.use_tpu:
                     eval_batch_size //= 8  # 8 Cores
@@ -728,23 +729,36 @@ class TsGraph:
                                  for o in range(eval_batch_size)], axis=0)
                             self.shared_tensors['template_simp_bias'] = template_simp_bias_beam
 
+                        # if l_id == 0:
+                        beam_search_size = self.flags.beam_search_size
 
                         beam_ids, beam_score = beam_search.beam_search(
                             symbols_to_logits_fn=symbol_to_syntax_logits_fn,
                             initial_ids=tf.ones(
                                 [eval_batch_size], tf.int32) * self.data.syntax_vocab.go_id,
-                            beam_size=self.flags.beam_search_size,
+                            beam_size=beam_search_size,
                             decode_length=self.flags.max_syntax_trg_len,
                             vocab_size=self.data.syntax_vocab.size(),
                             alpha=0.6,
-                            eos_id=self.data.syntax_vocab.eos_id
+                            eos_id=self.data.syntax_vocab.eos_id,
+                            hard_length_constrain=hard_length_constrain
                         )
                         top_beam_ids = beam_ids[:, 0, 1:]
+
                         top_beam_ids = tf.pad(top_beam_ids,
                                               [[0, 0],
                                                [0, self.flags.max_syntax_trg_len - tf.shape(top_beam_ids)[1]]])
                         confident_score = -beam_score[:, 0] / tf.to_float(tf.shape(top_beam_ids)[1])
                         top_beam_ids.set_shape([eval_batch_size, self.flags.max_syntax_trg_len])
+
+                        hard_length_constrain = tf.reduce_sum(tf.cast(tf.not_equal(top_beam_ids, 0), tf.int32), axis=-1)
+
+                        # print_op = tf.print(
+                        #     "top_beam_ids:", top_beam_ids,
+                        #     "hard_length_constrain", hard_length_constrain,
+                        #     summarize=-1)
+                        # with tf.control_dependencies([print_op]):
+                        #     top_beam_ids = tf.identity(top_beam_ids)
 
                         confident_scores.append(confident_score)
                         template_simp_prev_ids_layers.append(top_beam_ids)
@@ -793,7 +807,8 @@ class TsGraph:
                     decode_length=self.flags.max_trg_len,
                     vocab_size=self.data.vocab.size() + len(self.data.vocab.more_tokens),
                     alpha=0.6,
-                    eos_id=self.data.vocab.eos_id
+                    eos_id=self.data.vocab.eos_id,
+                    hard_length_constrain=hard_length_constrain
                 )
                 top_beam_ids = beam_ids[:, 0, 1:]
                 top_beam_ids = tf.pad(top_beam_ids,
@@ -801,6 +816,14 @@ class TsGraph:
                                        [0, self.flags.max_trg_len - tf.shape(top_beam_ids)[1]]])
                 confident_score = -beam_score[:, 0] / tf.to_float(tf.shape(top_beam_ids)[1])
                 top_beam_ids.set_shape([eval_batch_size, self.flags.max_trg_len])
+
+                # print_op = tf.print(
+                #     "top_beam_ids:", top_beam_ids,
+                #     "hard_length_constrain", hard_length_constrain,
+                #     summarize=-1)
+                # with tf.control_dependencies([print_op]):
+                #     top_beam_ids = tf.identity(top_beam_ids)
+
                 outputs['gen_trg_ids'] = top_beam_ids
                 outputs['gen_trg_scores'] = confident_score
                 if self.flags.control_mode:

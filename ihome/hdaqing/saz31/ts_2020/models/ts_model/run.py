@@ -27,11 +27,11 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200313",
+    "name", "20200315",
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "train",
+    "mode", "infer",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -71,17 +71,17 @@ flags.DEFINE_integer(
 )
 
 flags.DEFINE_integer(
-    "max_src_len", 128,
+    "max_src_len", 64,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "max_trg_len", 128,
+    "max_trg_len", 64,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_float(
-    "lr", 0.1, "Learning rate.")
+    "lr", 0.0001, "Learning rate.")
 
 flags.DEFINE_float(
     "drop_keep_rate", 0.9, "Learning rate.")
@@ -92,7 +92,7 @@ flags.DEFINE_integer(
 )
 
 flags.DEFINE_string(
-    "op", "adagrad",
+    "op", "lamb",
     "Name of experiment")
 # For predict
 
@@ -108,7 +108,7 @@ flags.DEFINE_string(
 
 # For control
 flags.DEFINE_string(
-    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce:bart", #
+    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce", #
     "choice of :")
 
 flags.DEFINE_integer(
@@ -170,7 +170,7 @@ flags.DEFINE_integer(
     "Number of reference files.")
 
 flags.DEFINE_integer(
-    "eval_batch_size", 1,
+    "eval_batch_size", 2,
     "Size of minibatch."
 )
 
@@ -181,12 +181,12 @@ flags.DEFINE_string(
     "The file path of bert vocab")
 
 flags.DEFINE_integer(
-    "max_syntax_src_len", 128,
+    "max_syntax_src_len", 64,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "max_syntax_trg_len", 128,
+    "max_syntax_trg_len", 64,
     "Maximum length of sentence."
 )
 
@@ -216,7 +216,7 @@ flags.DEFINE_integer(
 
 flags.DEFINE_string(
     "infer_tfexample",
-    "/Users/sanqiang/git/ts/ts_2020_data/data_dev_test.example",
+    "/Users/sanqiang/git/ts/text_simplification_data/example_v1_s3_l64_shuffle/shard_63.example",
     "The path pattern of train tf.Example files.")
 
 flags.DEFINE_string(
@@ -484,7 +484,9 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
             for gen_trg_syntax_sent in gen_trg_syntax_sents:
                 gen_trg_syntax_sent = list(gen_trg_syntax_sent)
                 gen_trg_syntax_sent = data.syntax_vocab.decode_sent(gen_trg_syntax_sent)
-                for i, tag in enumerate(gen_trg_syntax_sent.split()):
+                gen_trg_syntax_sent_tags = gen_trg_syntax_sent.split()
+                for i in range(FLAGS.max_syntax_trg_len):
+                    tag = gen_trg_syntax_sent_tags[i] if i < len(gen_trg_syntax_sent_tags) else 'X'
                     gen_trg_syntax_sent_outputs[i] += '|' + tag if gen_trg_syntax_sent_outputs[i] else tag
             gen_trg_syntax_sent_syn = ' '.join(gen_trg_syntax_sent_outputs)
 
@@ -774,7 +776,7 @@ def main(_):
     run_config = tf.contrib.tpu.RunConfig(
             cluster=tpu_cluster_resolver,
             model_dir=log_dir,
-            save_checkpoints_secs=1500,
+            save_checkpoints_secs=15,
             session_config=config,
             tpu_config=tpu_config
     )
