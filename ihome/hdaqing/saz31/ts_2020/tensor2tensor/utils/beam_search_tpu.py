@@ -403,8 +403,9 @@ def beam_search(symbols_to_logits_fn,
                 eos_id=EOS_ID,
                 stop_early=False,
                 use_tpu=False,
-                use_top_k_with_unique=False,
-                hard_length_constrain=None):
+                use_top_k_with_unique=True,
+                hard_length_constrain=None,
+                tfprint=False):
   """Beam search with length penalties.
 
   Requires a function that can take the currently decoded symbols and return
@@ -664,6 +665,13 @@ def beam_search(symbols_to_logits_fn,
       topk_seq = tf.transpose(topk_seq, perm=[1, 2, 0])
 
     topk_finished = tf.equal(topk_ids, eos_id)
+
+    # if tfprint:
+    #   print_op = tf.print(
+    #       "topk_ids:", topk_ids,
+    #       summarize=-1)
+    #   with tf.control_dependencies([print_op]):
+    #       topk_seq = tf.identity(topk_seq)
 
     return topk_seq, topk_log_probs, topk_scores, topk_finished, states
 

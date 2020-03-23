@@ -31,7 +31,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "infer",
+    "mode", "train",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -455,6 +455,8 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
         gen_trg_scores = []
         all_generated_sents = []
 
+        cnt = 0
+
         for inst_id, result in enumerate(results):
             gen_trg_sent, gen_trg_wps = data.vocab.decode_sent(list(result['gen_trg_ids']), return_wps=True)
             src_sent, src_wps = data.vocab.decode_sent(list(result['src_ids']), return_wps=True)
@@ -572,6 +574,11 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
             report.append('==============================')
             report.append('')
             reports.append('\n'.join(report))
+
+            cnt += 1
+            if cnt > 10:
+                print('\n'.join(reports))
+                return
 
         all_reports = '\n'.join(reports)
         gen_trg_score = np.mean(gen_trg_scores)
@@ -776,7 +783,7 @@ def main(_):
     run_config = tf.contrib.tpu.RunConfig(
             cluster=tpu_cluster_resolver,
             model_dir=log_dir,
-            save_checkpoints_secs=1500,
+            save_checkpoints_secs=30,
             session_config=config,
             tpu_config=tpu_config
     )

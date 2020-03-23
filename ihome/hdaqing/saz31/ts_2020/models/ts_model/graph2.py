@@ -5,10 +5,10 @@ import tensorflow as tf
 from tensor2tensor.models import transformer
 from tensor2tensor.layers import common_attention
 from tensor2tensor.utils import beam_search_tpu as beam_search
+from tensor2tensor.utils.beam_search_tpu import fast_tpu_gather
 from language_model.gpt2 import model
 from models.ts_model.seq_loss import sequence_loss
 from language_model.bert.modeling_t2t import BertModel, BertConfig
-
 
 class TsGraph:
     def __init__(self, flags, is_training, data):
@@ -142,8 +142,8 @@ class TsGraph:
         :return:
         """
         eval_batch_size = self.flags.eval_batch_size
-        # if self.flags.use_tpu:
-        #     eval_batch_size //= 8  # 8 Cores
+        if self.flags.use_tpu:
+            eval_batch_size //= 8  # 8 Cores
 
         src_ids = self.shared_tensors['src_ids']
         src_ids = tf.concat(
@@ -665,8 +665,8 @@ class TsGraph:
             else:
                 hard_length_constrain = None
                 eval_batch_size = self.flags.eval_batch_size
-                # if self.flags.use_tpu:
-                #     eval_batch_size //= 8  # 8 Cores
+                if self.flags.use_tpu:
+                    eval_batch_size //= 8  # 8 Cores
 
                 if 'bart' not in self.flags.control_mode:
                     outputs['src_syntax_ids'] = tf.reshape(
@@ -695,15 +695,31 @@ class TsGraph:
 
                 if 'syntax_gen' in self.flags.control_mode:
                     def symbol_to_syntax_logits_fn(gen_ids, i=None):
-                        gen_ids = gen_ids[:, 1:i]
+                        print('Decode syntax for ids=%s i=%s' % (gen_ids, i))
+                        cur_embs = tf.nn.embedding_lookup(
+                            self.shared_tensors['syntax_embedding_table'], gen_ids)
+                        cur_outputs = self.decode_syntax_template(cur_embs)
+
+                        i_batch = tf.tile(tf.reshape(i, [1, 1]), [eval_batch_size, 1])
+                        cur_outputs = fast_tpu_gather(cur_outputs, i_batch)
+                        cur_outputs = tf.squeeze(cur_outputs, axis=1)
+
+                        cur_logit = tf.matmul(
+                            cur_outputs, self.shared_tensors['proj_syntax_w']
+                        ) + self.shared_tensors['proj_syntax_b']
+                        return cur_logit
+
+                    def symbol_to_syntax_logits_fn_old(gen_ids, i=None):
+                        gen_ids = gen_ids[:, 1:]
                         print('Decode syntax for ids=%s i=%s' % (gen_ids, i))
                         cur_ids = tf.concat(
                             [tf.expand_dims(batch_syntax_go_id, axis=-1), gen_ids], axis=1)
                         cur_embs = tf.nn.embedding_lookup(
                             self.shared_tensors['syntax_embedding_table'], cur_ids)
                         cur_outputs = self.decode_syntax_template(cur_embs)
+
                         cur_logit = tf.matmul(
-                            cur_outputs[:, -1, :], self.shared_tensors['proj_syntax_w']
+                            cur_outputs[: -1, :], self.shared_tensors['proj_syntax_w']
                         ) + self.shared_tensors['proj_syntax_b']
                         return cur_logit
 
@@ -750,7 +766,7 @@ class TsGraph:
                             alpha=0.6,
                             eos_id=self.data.syntax_vocab.eos_id,
                             hard_length_constrain=hard_length_constrain,
-                            use_tpu=self.flags.use_tpu
+                            use_tpu=True #self.flags.use_tpu
                         )
                         top_beam_ids = beam_ids[:, 0, 1:]
 
@@ -797,7 +813,23 @@ class TsGraph:
                     self.shared_tensors['template_simp_bias'] = template_simp_bias_beam
 
                 def symbol_to_logits_fn(gen_ids, i):
-                    gen_ids = gen_ids[:, 1:i]
+                    print('Decode word for ids=%s i=%s' % (gen_ids, i))
+                    cur_embs = tf.nn.embedding_lookup(
+                        self.shared_tensors['word_embedding_table'], gen_ids)
+                    cur_outputs = self.decode_srcs_to_trgs(
+                        trg_emb=cur_embs, trg_input_ids=gen_ids)
+
+                    i_batch = tf.tile(tf.reshape(i, [1, 1]), [eval_batch_size, 1])
+                    cur_outputs = fast_tpu_gather(cur_outputs, i_batch)
+                    cur_outputs = tf.squeeze(cur_outputs, axis=1)
+
+                    cur_logit = tf.matmul(
+                        cur_outputs, self.shared_tensors['proj_word_w']
+                    ) + self.shared_tensors['proj_word_b']
+                    return cur_logit
+
+                def symbol_to_logits_fn_old(gen_ids, i):
+                    gen_ids = gen_ids[:, 1:]
                     print('Decode word for ids=%s i=%s' % (gen_ids, i))
                     cur_ids = tf.concat(
                         [tf.expand_dims(batch_go_id, axis=-1), gen_ids], axis=1)
@@ -805,6 +837,7 @@ class TsGraph:
                         self.shared_tensors['word_embedding_table'], cur_ids)
                     cur_outputs = self.decode_srcs_to_trgs(
                         trg_emb=cur_embs, trg_input_ids=cur_ids)
+
                     cur_logit = tf.matmul(
                         cur_outputs[:, -1, :], self.shared_tensors['proj_word_w']
                     ) + self.shared_tensors['proj_word_b']
@@ -820,7 +853,7 @@ class TsGraph:
                     alpha=0.6,
                     eos_id=self.data.vocab.eos_id,
                     hard_length_constrain=hard_length_constrain,
-                    use_tpu=self.flags.use_tpu
+                    use_tpu=True #self.flags.use_tpu
                 )
                 top_beam_ids = beam_ids[:, 0, 1:]
                 top_beam_ids = tf.pad(top_beam_ids,
