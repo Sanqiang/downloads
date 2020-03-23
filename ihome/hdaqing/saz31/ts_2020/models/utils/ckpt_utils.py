@@ -96,12 +96,13 @@ def _copy_ckpt_to_modeldir(modeldir, logdir):
         raise FileNotFoundError('No new ckpt. cur_max_step: %s, max_step: %s.'
                                 % (cur_max_step, max_step))
 
-    for file in files:
-        source = os.path.join(logdir, file)
-        target = os.path.join(modeldir, file)
-        tf.gfile.Copy(source, target, overwrite=False)
-        # shutil.copy2(source, target)
-        print('Copy Ckpt from %s \t to \t %s.' % (source, target))
+    if cur_max_step != max_step:
+        for file in files:
+            source = os.path.join(logdir, file)
+            target = os.path.join(modeldir, file)
+            tf.gfile.Copy(source, target, overwrite=False)
+            # shutil.copy2(source, target)
+            print('Copy Ckpt from %s \t to \t %s.' % (source, target))
     return os.path.join(modeldir, ckpt_prefix + str(max_step))
 
 

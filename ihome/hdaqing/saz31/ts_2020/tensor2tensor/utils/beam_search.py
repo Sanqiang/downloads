@@ -312,7 +312,7 @@ def beam_search(symbols_to_logits_fn,
                                        curr_finished, beam_size, batch_size,
                                        "grow_alive", states)
 
-  def grow_topk(i, alive_seq, alive_log_probs, states):
+  def grow_topk(i, alive_seq, alive_log_probs):
     r"""Inner beam search loop.
 
     This function takes the current alive sequences, and grows them to topk
@@ -341,14 +341,8 @@ def beam_search(symbols_to_logits_fn,
     # Get the logits for all the possible next symbols
     flat_ids = tf.reshape(alive_seq, [batch_size * beam_size, -1])
 
-    # (batch_size * beam_size, decoded_length)
-    if states:
-      flat_states = nest.map_structure(_merge_beam_dim, states)
-      flat_logits, flat_states = symbols_to_logits_fn(flat_ids, i, flat_states)
-      states = nest.map_structure(
-          lambda t: _unmerge_beam_dim(t, batch_size, beam_size), flat_states)
-    else:
-      flat_logits = symbols_to_logits_fn(flat_ids)
+    # (batch_size * beam_size, decoded_length
+    flat_logits = symbols_to_logits_fn(flat_ids, i)
 
     logits = tf.reshape(flat_logits, [batch_size, beam_size, -1])
 
@@ -388,9 +382,6 @@ def beam_search(symbols_to_logits_fn,
     # Gather up the most probable 2*beams both for the ids and finished_in_alive
     # bools
     topk_seq = tf.gather_nd(alive_seq, topk_coordinates)
-    if states:
-      states = nest.map_structure(
-          lambda state: tf.gather_nd(state, topk_coordinates), states)
 
     # Append the most probable alive
     topk_seq = tf.concat([topk_seq, tf.expand_dims(topk_ids, axis=2)], axis=2)
@@ -407,7 +398,7 @@ def beam_search(symbols_to_logits_fn,
     return topk_seq, topk_log_probs, topk_scores, topk_finished, states
 
   def inner_loop(i, alive_seq, alive_log_probs, finished_seq, finished_scores,
-                 finished_flags, states):
+                 finished_flags):
     """Inner beam search loop.
 
     There are three groups of tensors, alive, finished, and topk.
@@ -457,7 +448,7 @@ def beam_search(symbols_to_logits_fn,
     # 2. Extract the ones that have finished and haven't finished
     # 3. Recompute the contents of finished based on scores.
     topk_seq, topk_log_probs, topk_scores, topk_finished, states = grow_topk(
-        i, alive_seq, alive_log_probs, states)
+        i, alive_seq, alive_log_probs)
     alive_seq, alive_log_probs, _, states = grow_alive(
         topk_seq, topk_scores, topk_log_probs, topk_finished, states)
     finished_seq, finished_scores, finished_flags, _ = grow_finished(
@@ -465,10 +456,10 @@ def beam_search(symbols_to_logits_fn,
         topk_finished)
 
     return (i + 1, alive_seq, alive_log_probs, finished_seq, finished_scores,
-            finished_flags, states)
+            finished_flags)
 
   def _is_finished(i, unused_alive_seq, alive_log_probs, unused_finished_seq,
-                   finished_scores, finished_in_finished, unused_states):
+                   finished_scores, finished_in_finished):
     """Checking termination condition.
 
     We terminate when we decoded up to decode_length or the lowest scoring item
@@ -513,11 +504,11 @@ def beam_search(symbols_to_logits_fn,
         tf.less(i, decode_length), tf.logical_not(bound_is_met))
 
   (_, alive_seq, alive_log_probs, finished_seq, finished_scores,
-   finished_flags, _) = tf.while_loop(
+   finished_flags) = tf.while_loop(
        _is_finished,
        inner_loop, [
            tf.constant(0), alive_seq, alive_log_probs, finished_seq,
-           finished_scores, finished_flags, states
+           finished_scores, finished_flags
        ],
        shape_invariants=[
            tf.TensorShape([]),
@@ -526,7 +517,6 @@ def beam_search(symbols_to_logits_fn,
            tf.TensorShape([None, None, None]),
            finished_scores.get_shape(),
            finished_flags.get_shape(),
-           nest.map_structure(get_state_shape_invariants, states),
        ],
        parallel_iterations=1,
        back_prop=False)

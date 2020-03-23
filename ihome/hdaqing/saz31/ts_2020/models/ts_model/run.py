@@ -27,7 +27,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200315",
+    "name", "20200319",
     "Name of experiment")
 
 flags.DEFINE_string(
@@ -52,16 +52,16 @@ flags.DEFINE_string(
 
 flags.DEFINE_string(
     "train_tfexample",
-    "/Users/sanqiang/git/ts/text_simplification_data/example_v1_s3_l64_shuffle/*.example",
+    "/Users/sanqiang/git/ts/ts_2020_data/examples/shard_wikilarge_160.example",
     "The path pattern of train tf.Example files.")
 
 flags.DEFINE_integer(
-    "num_train_steps", 500000,
+    "num_train_steps", 10000,
     "Number of training step."
 )
 
 flags.DEFINE_integer(
-    "num_warmup_steps", 10000,
+    "num_warmup_steps", 1000,
     "Number of training step."
 )
 
@@ -81,13 +81,13 @@ flags.DEFINE_integer(
 )
 
 flags.DEFINE_float(
-    "lr", 0.0001, "Learning rate.")
+    "lr", 0.001, "Learning rate.")
 
 flags.DEFINE_float(
     "drop_keep_rate", 0.9, "Learning rate.")
 
 flags.DEFINE_integer(
-    "beam_search_size", 3,
+    "beam_search_size", 1,
     "The size of beam search."
 )
 
@@ -216,7 +216,7 @@ flags.DEFINE_integer(
 
 flags.DEFINE_string(
     "infer_tfexample",
-    "/Users/sanqiang/git/ts/text_simplification_data/example_v1_s3_l64_shuffle/shard_63.example",
+    "/Users/sanqiang/git/ts/ts_2020_data/examples/shard_wikilarge_160.example",
     "The path pattern of train tf.Example files.")
 
 flags.DEFINE_string(
@@ -553,13 +553,13 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
             report = list()
             report.append('gen:\t' + gen_trg_sent)
             report.append('src:\t' + src_sent)
-            reports.append('trg:\t' + trg_sent)
+            # reports.append('trg:\t' + trg_sent)
             report.append('gen_syn:\t' + gen_trg_syntax_sent_syn)
-            report.append('src_syn:\t' + trg_syntax_sent_syn)
-            report.append('trg_syn:\t' + src_syntax_sent_syn)
+            report.append('src_syn:\t' + src_syntax_sent_syn)
+            # report.append('trg_syn:\t' + trg_syntax_sent_syn)
             report.append('gen_synt:\t' + gen_trg_syntax_sent_tk)
-            report.append('src_synt:\t' + trg_syntax_sent_tk)
-            report.append('trg_synt:\t' + src_syntax_sent_tk)
+            # report.append('trg_synt:\t' + trg_syntax_sent_tk)
+            report.append('src_synt:\t' + src_syntax_sent_tk)
             for rid in range(FLAGS.num_ref):
                 report.append('ref%s:\t' % rid + ref_lines[inst_id][rid])
             report.append('sari:\t' + str(sari))
@@ -776,7 +776,7 @@ def main(_):
     run_config = tf.contrib.tpu.RunConfig(
             cluster=tpu_cluster_resolver,
             model_dir=log_dir,
-            save_checkpoints_secs=15,
+            save_checkpoints_secs=1500,
             session_config=config,
             tpu_config=tpu_config
     )
@@ -790,7 +790,7 @@ def main(_):
         train_batch_size=FLAGS.train_batch_size,
         eval_batch_size=FLAGS.eval_batch_size,
         predict_batch_size=FLAGS.eval_batch_size,
-        use_tpu=FLAGS.use_tpu,
+        use_tpu=FLAGS.use_tpu
     )
 
     tf.logging.info('Current FLAGS:')
