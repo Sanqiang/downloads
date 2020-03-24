@@ -26,7 +26,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200319",
+    "name", "20200320",
     "Name of experiment")
 
 flags.DEFINE_string(
@@ -270,8 +270,16 @@ def model_fn_builder(data, init_ckpt_path=None):
                     print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
                 tf.logging.info('Init GPT2 from %s' % FLAGS.gpt2_ckpt_path)
             elif init_ckpt_path:
-                (assignment_map, initialized_variable_names
-                 ) = restore_utils.get_assignment_map_from_checkpoint(tvars, init_ckpt_path)
+                if tf.gfile.IsDirectory(init_ckpt_path):
+                    init_ckpt_path_find, step = os.path.join(
+                        init_ckpt_path,
+                        ckpt_utils._find_train_ckptfiles(init_ckpt_path, False, True))
+                    print('Grab ckpt %s with step %s' % (init_ckpt_path_find, step))
+                    (assignment_map, initialized_variable_names
+                     ) = restore_utils.get_assignment_map_from_checkpoint(tvars, init_ckpt_path_find)
+                else:
+                    (assignment_map, initialized_variable_names
+                     ) = restore_utils.get_assignment_map_from_checkpoint(tvars, init_ckpt_path)
                 for var in tvars:
                     print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
                 if FLAGS.use_tpu:
@@ -388,12 +396,11 @@ def model_fn_builder(data, init_ckpt_path=None):
                                     if FLAGS.control_mode
                                     else outputs['gen_trg_ids']), ## Just placeholder,
                     'control_vec': outputs['control_vec'] if "control_vec" in outputs else [0],
-                    'src_syntax_ids': outputs['src_syntax_ids']
-                                      if 'src_syntax_ids' in outputs else outputs['src_ids'],
+                    'src_syntax_ids': outputs['src_syntax_ids'],
                     'trg_syntax_ids': outputs['trg_syntax_ids']
-                                      if 'trg_syntax_ids' in outputs else outputs['trg_ids'],
+                                      if 'trg_syntax_ids' in outputs else outputs['src_syntax_ids'],
                     'gen_trg_syntax_ids': outputs['gen_trg_syntax_ids']
-                                          if 'gen_trg_syntax_ids' in outputs else outputs['trg_ids'],
+                                          if 'gen_trg_syntax_ids' in outputs else outputs['src_syntax_ids'],
                 })
 
         return output_spec
@@ -789,7 +796,7 @@ def main(_):
     run_config = tf.contrib.tpu.RunConfig(
             cluster=tpu_cluster_resolver,
             model_dir=log_dir,
-            save_checkpoints_secs=30,
+            save_checkpoints_secs=1500,
             session_config=config,
             tpu_config=tpu_config
     )

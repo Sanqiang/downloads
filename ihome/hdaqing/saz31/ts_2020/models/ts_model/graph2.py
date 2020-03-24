@@ -218,6 +218,7 @@ class TsGraph:
             guild_outputs = transformer.transformer_encoder(
                 guild_embs, guild_bias, self.hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
+        guild_outputs = common_attention.add_timing_signal_1d(guild_outputs)
         return guild_outputs, guild_bias
 
     def encode_syntax_template(self, template_embs, template_bias):
@@ -225,6 +226,7 @@ class TsGraph:
             template_outputs = transformer.transformer_encoder(
                 template_embs, template_bias, self.syntax_hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
+        template_outputs = common_attention.add_timing_signal_1d(template_outputs)
         return template_outputs, template_bias
 
     def decode_syntax_template(self, trg_syntax_emb):
@@ -509,6 +511,7 @@ class TsGraph:
                     template_simp_prev_embs.append(template_simp_prev_emb)
                 template_simp_prev_embs = tf.stack(template_simp_prev_embs, axis=1)
                 template_simp_prev_embs = tf.reduce_mean(template_simp_prev_embs, axis=1)
+                template_simp_prev_embs = common_attention.add_timing_signal_1d(template_simp_prev_embs)
 
                 return template_simp_prev_embs
 
