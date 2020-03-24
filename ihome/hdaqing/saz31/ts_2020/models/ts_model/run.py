@@ -13,7 +13,6 @@ from nltk.translate.bleu_score import sentence_bleu
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import tpu as contrib_tpu
 from models.utils.lamb_optimizer import LAMBOptimizer
-from google.cloud import storage
 
 
 flags = tf.flags
@@ -381,16 +380,19 @@ def model_fn_builder(data, init_ckpt_path=None):
                 mode=mode,
                 predictions={
                     'gen_trg_ids': outputs['gen_trg_ids'],
-                    'gen_trg_scores': outputs['gen_trg_scores'],
+                    'gen_trg_scores': outputs['gen_trg_scores'] if 'gen_trg_scores' not in outputs else outputs['gen_trg_ids'],
                     'src_ids': outputs['src_ids'],
                     'trg_ids': outputs['trg_ids'],
                     'control_ids': (outputs['control_ids']
                                     if FLAGS.control_mode
                                     else outputs['gen_trg_ids']), ## Just placeholder,
                     'control_vec': outputs['control_vec'] if "control_vec" in outputs else [0],
-                    'src_syntax_ids': outputs['src_syntax_ids'],
-                    'trg_syntax_ids': outputs['trg_syntax_ids'],
-                    'gen_trg_syntax_ids': outputs['gen_trg_syntax_ids'],
+                    'src_syntax_ids': outputs['src_syntax_ids']
+                                      if 'src_syntax_ids' not in outputs else outputs['src_ids'],
+                    'trg_syntax_ids': outputs['trg_syntax_ids']
+                                      if 'trg_syntax_ids' not in outputs else outputs['trg_ids'],
+                    'gen_trg_syntax_ids': outputs['gen_trg_syntax_ids']
+                                          if 'gen_trg_syntax_ids' not in outputs else outputs['trg_ids'],
                 })
 
         return output_spec
