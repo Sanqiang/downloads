@@ -680,7 +680,8 @@ class TsGraph:
                             self.shared_tensors['syntax_embedding_table'], gen_ids)
                         cur_outputs = self.decode_syntax_template(cur_embs)
 
-                        i_batch = tf.tile(tf.reshape(i, [1, 1]), [eval_batch_size, 1])
+                        i_batch = tf.tile(tf.reshape(i, [1, 1]),
+                                          [eval_batch_size*self.flags.beam_search_size, 1])
                         cur_outputs = fast_tpu_gather(cur_outputs, i_batch)
                         cur_outputs = tf.squeeze(cur_outputs, axis=1)
 
@@ -721,7 +722,7 @@ class TsGraph:
 
                         beam_search_size = self.flags.beam_search_size
 
-                        beam_ids, beam_score = beam_search.beam_search(
+                        beam_ids, beam_score, _ = beam_search.beam_search(
                             symbols_to_logits_fn=symbol_to_syntax_logits_fn,
                             initial_ids=tf.ones(
                                 [eval_batch_size], tf.int32) * self.data.syntax_vocab.go_id,
@@ -730,8 +731,8 @@ class TsGraph:
                             vocab_size=self.data.syntax_vocab.size(),
                             alpha=0.6,
                             eos_id=self.data.syntax_vocab.eos_id,
-                            hard_length_constrain=hard_length_constrain,
-                            use_tpu=self.flags.use_tpu
+                            # hard_length_constrain=hard_length_constrain,
+                            use_tpu=True #self.flags.use_tpu
                         )
                         top_beam_ids = beam_ids[:, 0, 1:]
 
@@ -784,7 +785,8 @@ class TsGraph:
                     cur_outputs = self.decode_srcs_to_trgs(
                         trg_emb=cur_embs, trg_input_ids=gen_ids)
 
-                    i_batch = tf.tile(tf.reshape(i, [1, 1]), [eval_batch_size, 1])
+                    i_batch = tf.tile(tf.reshape(i, [1, 1]),
+                                      [eval_batch_size*self.flags.beam_search_size, 1])
                     cur_outputs = fast_tpu_gather(cur_outputs, i_batch)
                     cur_outputs = tf.squeeze(cur_outputs, axis=1)
 
@@ -793,7 +795,7 @@ class TsGraph:
                     ) + self.shared_tensors['proj_word_b']
                     return cur_logit
 
-                beam_ids, beam_score = beam_search.beam_search(
+                beam_ids, beam_score, _ = beam_search.beam_search(
                     symbols_to_logits_fn=symbol_to_logits_fn,
                     initial_ids=tf.ones(
                         [eval_batch_size], tf.int32) * self.data.vocab.go_id,
@@ -802,8 +804,8 @@ class TsGraph:
                     vocab_size=self.data.vocab.size() + len(self.data.vocab.more_tokens),
                     alpha=0.6,
                     eos_id=self.data.vocab.eos_id,
-                    hard_length_constrain=hard_length_constrain,
-                    use_tpu=self.flags.use_tpu
+                    # hard_length_constrain=hard_length_constrain,
+                    use_tpu=True #self.flags.use_tpu
                 )
                 top_beam_ids = beam_ids[:, 0, 1:]
                 top_beam_ids = tf.pad(top_beam_ids,

@@ -87,7 +87,7 @@ flags.DEFINE_float(
     "drop_keep_rate", 0.9, "Learning rate.")
 
 flags.DEFINE_integer(
-    "beam_search_size", 1,
+    "beam_search_size", 10,
     "The size of beam search."
 )
 
@@ -470,16 +470,16 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                 src_syntax_sent = data.syntax_vocab.decode_sent(src_syntax_sent)
                 for i, tag in enumerate(src_syntax_sent.split()):
                     src_syntax_sent_outputs[i] += '|' + tag if src_syntax_sent_outputs[i] else tag
-            src_syntax_sent_syn = ' '.join(src_syntax_sent_outputs)
+            src_syntax_sent_syn = '\t'.join(src_syntax_sent_outputs)
 
-            trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
-            trg_syntax_sents = list(result['trg_syntax_ids'])
-            for trg_syntax_sent in trg_syntax_sents:
-                trg_syntax_sent = list(trg_syntax_sent)
-                trg_syntax_sent = data.syntax_vocab.decode_sent(trg_syntax_sent)
-                for i, tag in enumerate(trg_syntax_sent.split()):
-                    trg_syntax_sent_outputs[i] += '|' + tag if trg_syntax_sent_outputs[i] else tag
-            trg_syntax_sent_syn = ' '.join(trg_syntax_sent_outputs)
+            # trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
+            # trg_syntax_sents = list(result['trg_syntax_ids'])
+            # for trg_syntax_sent in trg_syntax_sents:
+            #     trg_syntax_sent = list(trg_syntax_sent)
+            #     trg_syntax_sent = data.syntax_vocab.decode_sent(trg_syntax_sent)
+            #     for i, tag in enumerate(trg_syntax_sent.split()):
+            #         trg_syntax_sent_outputs[i] += '|' + tag if trg_syntax_sent_outputs[i] else tag
+            # trg_syntax_sent_syn = ' '.join(trg_syntax_sent_outputs)
 
             gen_trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
             gen_trg_syntax_sents = list(result['gen_trg_syntax_ids'])
@@ -490,7 +490,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                 for i in range(FLAGS.max_syntax_trg_len):
                     tag = gen_trg_syntax_sent_tags[i] if i < len(gen_trg_syntax_sent_tags) else 'X'
                     gen_trg_syntax_sent_outputs[i] += '|' + tag if gen_trg_syntax_sent_outputs[i] else tag
-            gen_trg_syntax_sent_syn = ' '.join(gen_trg_syntax_sent_outputs)
+            gen_trg_syntax_sent_syn = '\t'.join(gen_trg_syntax_sent_outputs)
 
             # Syntax + word
             src_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_src_len)]
@@ -502,29 +502,32 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                     src_syntax_sent_outputs[i] += '|' + tag if src_syntax_sent_outputs[i] else tag
             for i, tk in enumerate(src_wps):
                 src_syntax_sent_outputs[i] += '|' + tk if src_syntax_sent_outputs[i] else tag
-            src_syntax_sent_tk = ' '.join(src_syntax_sent_outputs)
+            src_syntax_sent_tk = '\t'.join(src_syntax_sent_outputs)
 
-            trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
-            trg_syntax_sents = list(result['trg_syntax_ids'])
-            for trg_syntax_sent in trg_syntax_sents:
-                trg_syntax_sent = list(trg_syntax_sent)
-                trg_syntax_sent = data.syntax_vocab.decode_sent(trg_syntax_sent)
-                for i, tag in enumerate(trg_syntax_sent.split()):
-                    trg_syntax_sent_outputs[i] += '|' + tag if trg_syntax_sent_outputs[i] else tag
-            for i, tk in enumerate(trg_wps):
-                trg_syntax_sent_outputs[i] += '|' + tk if trg_syntax_sent_outputs[i] else tag
-            trg_syntax_sent_tk = ' '.join(trg_syntax_sent_outputs)
+            # trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
+            # trg_syntax_sents = list(result['trg_syntax_ids'])
+            # for trg_syntax_sent in trg_syntax_sents:
+            #     trg_syntax_sent = list(trg_syntax_sent)
+            #     trg_syntax_sent = data.syntax_vocab.decode_sent(trg_syntax_sent)
+            #     for i, tag in enumerate(trg_syntax_sent.split()):
+            #         trg_syntax_sent_outputs[i] += '|' + tag if trg_syntax_sent_outputs[i] else tag
+            # for i, tk in enumerate(trg_wps):
+            #     trg_syntax_sent_outputs[i] += '|' + tk if trg_syntax_sent_outputs[i] else tag
+            # trg_syntax_sent_tk = ' '.join(trg_syntax_sent_outputs)
 
             gen_trg_syntax_sent_outputs = ['' for _ in range(FLAGS.max_syntax_trg_len)]
             gen_trg_syntax_sents = list(result['gen_trg_syntax_ids'])
             for gen_trg_syntax_sent in gen_trg_syntax_sents:
                 gen_trg_syntax_sent = list(gen_trg_syntax_sent)
                 gen_trg_syntax_sent = data.syntax_vocab.decode_sent(gen_trg_syntax_sent)
-                for i, tag in enumerate(gen_trg_syntax_sent.split()):
+                gen_trg_syntax_sent_tks = gen_trg_syntax_sent.split()
+                for i in range(FLAGS.max_syntax_trg_len):
+                    tag = gen_trg_syntax_sent_tks[i] if i < len(gen_trg_syntax_sent_tks) else 'X'
                     gen_trg_syntax_sent_outputs[i] += '|' + tag if gen_trg_syntax_sent_outputs[i] else tag
-            for i, tk in enumerate(gen_trg_wps):
+            for i in range(FLAGS.max_syntax_trg_len):
+                tk = gen_trg_wps[i] if i < len(gen_trg_wps) else 'W'
                 gen_trg_syntax_sent_outputs[i] += '|' + tk if gen_trg_syntax_sent_outputs[i] else tag
-            gen_trg_syntax_sent_tk = ' '.join(gen_trg_syntax_sent_outputs)
+            gen_trg_syntax_sent_tk = '\t'.join(gen_trg_syntax_sent_outputs)
 
             all_generated_sents.append(gen_trg_sent)
             gen_trg_score = result['gen_trg_scores']
