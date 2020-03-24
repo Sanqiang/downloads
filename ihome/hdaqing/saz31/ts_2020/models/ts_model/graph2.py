@@ -675,7 +675,6 @@ class TsGraph:
 
                 if 'syntax_gen' in self.flags.control_mode:
                     def symbol_to_syntax_logits_fn(gen_ids, i=None):
-                        gen_ids = gen_ids[:, :(1+i)]
                         print('Decode syntax for ids=%s i=%s' % (gen_ids, i))
                         cur_embs = tf.nn.embedding_lookup(
                             self.shared_tensors['syntax_embedding_table'], gen_ids)
@@ -779,7 +778,6 @@ class TsGraph:
                     self.shared_tensors['template_simp_bias'] = template_simp_bias_beam
 
                 def symbol_to_logits_fn(gen_ids, i):
-                    gen_ids = gen_ids[:, :(1+i)]
                     print('Decode word for ids=%s i=%s' % (gen_ids, i))
                     cur_embs = tf.nn.embedding_lookup(
                         self.shared_tensors['word_embedding_table'], gen_ids)

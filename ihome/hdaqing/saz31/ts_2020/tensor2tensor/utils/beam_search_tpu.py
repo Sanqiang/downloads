@@ -304,7 +304,7 @@ def compute_topk_scores_and_seq(sequences,
                                 prefix="default",
                                 states_to_gather=None,
                                 use_tpu=False,
-                                use_top_k_with_unique=False):
+                                use_top_k_with_unique=True):
   """Given sequences and scores, will gather the top k=beam size sequences.
 
   This function is used to grow alive, and finished. It takes sequences,
@@ -343,7 +343,7 @@ def compute_topk_scores_and_seq(sequences,
      topk_gathered_scores [batch_size, beam_size],
      topk_finished_flags[batch_size, beam_size])
   """
-  if True or not use_tpu:
+  if not use_tpu:
     _, topk_indexes = tf.nn.top_k(scores, k=beam_size)
     # The next three steps are to create coordinates for tf.gather_nd to pull
     # out the topk sequences from sequences based on scores.
@@ -401,11 +401,9 @@ def beam_search(symbols_to_logits_fn,
                 alpha,
                 states=None,
                 eos_id=EOS_ID,
-                stop_early=False,
+                stop_early=True,
                 use_tpu=False,
-                use_top_k_with_unique=False,
-                hard_length_constrain=None,
-                tfprint=False):
+                use_top_k_with_unique=True):
   """Beam search with length penalties.
 
   Requires a function that can take the currently decoded symbols and return
@@ -456,7 +454,6 @@ def beam_search(symbols_to_logits_fn,
      decoding probabilities [batch_size, beam_size])
   """
   batch_size = common_layers.shape_list(initial_ids)[0]
-  print("use_tpu%s:" % use_tpu)
 
   # Assume initial_ids are prob 1.0
   initial_log_probs = tf.constant([[0.] + [-INF] * (beam_size - 1)])
@@ -597,7 +594,7 @@ def beam_search(symbols_to_logits_fn,
     elif use_tpu:
       flat_logits = symbols_to_logits_fn(flat_ids, i)
     else:
-      flat_logits = symbols_to_logits_fn(flat_ids, i)
+      flat_logits = symbols_to_logits_fn(flat_ids)
 
     logits = tf.reshape(flat_logits, [batch_size, beam_size, -1])
 
@@ -651,10 +648,7 @@ def beam_search(symbols_to_logits_fn,
     else:
       # Gather up the most probable 2*beams both for the ids and
       # finished_in_alive bools
-      batch_pos = compute_batch_indices(batch_size, beam_size * 2)
-      topk_coordinates = tf.stack([batch_pos, topk_beam_index], axis=2)
-      topk_seq = tf.gather_nd(alive_seq, topk_coordinates)
-      # topk_seq = fast_tpu_gather(alive_seq, topk_coordinates)
+      topk_seq = fast_tpu_gather(alive_seq, topk_beam_index)
 
       if states:
         states = nest.map_structure(
@@ -666,21 +660,6 @@ def beam_search(symbols_to_logits_fn,
       topk_seq = tf.transpose(topk_seq, perm=[1, 2, 0])
 
     topk_finished = tf.equal(topk_ids, eos_id)
-
-    if tfprint:
-      if use_tpu:
-        topk_seqx = topk_seq[:, :, :(i+2)]
-      else:
-        topk_seqx = topk_seq
-      print_op = tf.print(
-        "topk_scores", topk_scores,
-        "topk_seqx:", topk_seqx,
-        "topk_log_probs", topk_log_probs,
-        "topk_finished", topk_finished,
-        "i", i,
-          summarize=-1)
-      with tf.control_dependencies([print_op]):
-          topk_seq = tf.identity(topk_seq)
 
     return topk_seq, topk_log_probs, topk_scores, topk_finished, states
 
@@ -736,33 +715,11 @@ def beam_search(symbols_to_logits_fn,
     # 3. Recompute the contents of finished based on scores.
     topk_seq, topk_log_probs, topk_scores, topk_finished, states = grow_topk(
         i, alive_seq, alive_log_probs, states)
-
-
     alive_seq, alive_log_probs, _, states = grow_alive(
         topk_seq, topk_scores, topk_log_probs, topk_finished, states)
-
-    # if tfprint:
-    #   if use_tpu:
-    #     alive_seqx = alive_seq[:, :, :i+2]
-    #     topk_seqx = topk_seq[:, :, :i+2]
-    #   else:
-    #     alive_seqx = alive_seq
-    #     topk_seqx = topk_seq
-    #   print_op = tf.print(
-    #     # "topk_seq", topk_seqx,
-    #     "topk_scores_2", topk_scores,
-    #     "i", i,
-    #     # "topk_log_probs", topk_log_probs,
-    #     # "alive_seq", alive_seqx,
-    #     # "alive_log_probs", alive_log_probs,
-    #     summarize=-1)
-    #   with tf.control_dependencies([print_op]):
-    #     alive_seq = tf.identity(alive_seq)
     finished_seq, finished_scores, finished_flags, _ = grow_finished(
         finished_seq, finished_scores, finished_flags, topk_seq, topk_scores,
         topk_finished)
-
-
 
     return (i + 1, alive_seq, alive_log_probs, finished_seq, finished_scores,
             finished_flags, states)
@@ -813,9 +770,8 @@ def beam_search(symbols_to_logits_fn,
         tf.greater(lowest_score_of_finished_in_finished,
                    lower_bound_alive_scores))
 
-    return tf.less(i, decode_length)
-    # return tf.logical_and(
-    #     tf.less(i, decode_length), tf.logical_not(bound_is_met))
+    return tf.logical_and(
+        tf.less(i, decode_length), tf.logical_not(bound_is_met))
 
   inner_shape = tf.TensorShape([None, None, None])
   if use_tpu:
@@ -855,5 +811,4 @@ def beam_search(symbols_to_logits_fn,
       tf.reduce_any(finished_flags, 1), finished_seq, alive_seq)
   finished_scores = tf.where(
       tf.reduce_any(finished_flags, 1), finished_scores, alive_log_probs)
-
-  return finished_seq, finished_scores
+  return finished_seq, finished_scores, states
