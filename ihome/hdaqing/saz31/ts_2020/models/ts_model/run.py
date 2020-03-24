@@ -271,10 +271,10 @@ def model_fn_builder(data, init_ckpt_path=None):
                 tf.logging.info('Init GPT2 from %s' % FLAGS.gpt2_ckpt_path)
             elif init_ckpt_path:
                 if tf.gfile.IsDirectory(init_ckpt_path):
-                    init_ckpt_path_find, step = os.path.join(
+                    init_ckpt_path_find = os.path.join(
                         init_ckpt_path,
-                        ckpt_utils._find_train_ckptfiles(init_ckpt_path, False, True))
-                    print('Grab ckpt %s with step %s' % (init_ckpt_path_find, step))
+                        ckpt_utils._find_train_ckptfiles(init_ckpt_path, False, True)[0])
+                    print('Grab ckpt %s' % (init_ckpt_path_find))
                     (assignment_map, initialized_variable_names
                      ) = restore_utils.get_assignment_map_from_checkpoint(tvars, init_ckpt_path_find)
                 else:
