@@ -59,7 +59,7 @@ flags.DEFINE_integer(
     "Number of training step."
 )
 
-flags.DEFINE_integer(
+flags.DEFINE_float(
     "num_warmup_steps", -1,
     "Number of training step."
 )
@@ -325,8 +325,10 @@ def model_fn_builder(data, init_ckpt_path=None):
             if FLAGS.num_warmup_steps != 0:
                 if FLAGS.num_warmup_steps < 0:
                     FLAGS.num_warmup_steps = int(0.1 * FLAGS.num_train_steps)
-                if FLAGS.num_warmup_steps < 1:
+                elif FLAGS.num_warmup_steps < 1:
                     FLAGS.num_warmup_steps = int(FLAGS.num_warmup_steps * FLAGS.num_train_steps)
+                else:
+                    FLAGS.num_warmup_steps = int(FLAGS.num_train_steps)
                 print('Use num_warmup_steps %s' % FLAGS.num_warmup_steps)
                 global_steps_int = tf.cast(global_step, tf.int32)
                 warmup_steps_int = tf.constant(FLAGS.num_warmup_steps, dtype=tf.int32)
