@@ -31,7 +31,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "train",
+    "mode", "infer",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -641,7 +641,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
 
         return gen_trg_score, wandb_log
 
-    while True:
+    if True:
         if predict_ckpt is None:
             ckpt = ckpt_utils.get_ckpt(model_dir, log_dir)
         else:

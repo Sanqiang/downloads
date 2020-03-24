@@ -553,30 +553,10 @@ class TsGraph:
                         self.shared_tensors['guild_bias'] = guild_bias
 
                     syntax_losses = []
-                    # template_simp_ids = features['template_simp_ids']
-
-                    # batch_size = template_simp_ids.shape.as_list()[0]
-                    # template_simp_ids = tf.reshape(
-                    #     template_simp_ids,
-                    #     [batch_size,
-                    #      self.flags.syntax_level
-                    #      if 'syntax_reduce' in self.flags.control_mode
-                    #      else self.flags.syntax_level,
-                    #      self.flags.max_syntax_trg_len])
-
-
-                    # print_op = tf.print("template_simp_ids output:", template_simp_ids)
-                    # with tf.control_dependencies([print_op]):
-                    #     template_simp_ids = tf.identity(template_simp_ids)
-
                     template_simp_ids_layers = tf.unstack(template_simp_ids, axis=1)
                     for l_id in range(self.flags.syntax_level - 1
                                       if 'syntax_reduce' in self.flags.control_mode else self.flags.syntax_level):
                         template_simp_ids_layer = template_simp_ids_layers[l_id]
-
-                        # print_op = tf.print("template_simp_ids_layer %s output:" % l_id, template_simp_ids_layer)
-                        # with tf.control_dependencies([print_op]):
-                        #     template_simp_ids_layer = tf.identity(template_simp_ids_layer)
 
                         template_simp_ids_layer_list = tf.unstack(template_simp_ids_layer, axis=1)
                         template_simp_ids_layer_inp_list = [batch_syntax_go_id] + template_simp_ids_layer_list[:-1]
@@ -695,6 +675,7 @@ class TsGraph:
 
                 if 'syntax_gen' in self.flags.control_mode:
                     def symbol_to_syntax_logits_fn(gen_ids, i=None):
+                        gen_ids = gen_ids[:, :(1+i)]
                         print('Decode syntax for ids=%s i=%s' % (gen_ids, i))
                         cur_embs = tf.nn.embedding_lookup(
                             self.shared_tensors['syntax_embedding_table'], gen_ids)
@@ -706,20 +687,6 @@ class TsGraph:
 
                         cur_logit = tf.matmul(
                             cur_outputs, self.shared_tensors['proj_syntax_w']
-                        ) + self.shared_tensors['proj_syntax_b']
-                        return cur_logit
-
-                    def symbol_to_syntax_logits_fn_old(gen_ids, i=None):
-                        gen_ids = gen_ids[:, 1:]
-                        print('Decode syntax for ids=%s i=%s' % (gen_ids, i))
-                        cur_ids = tf.concat(
-                            [tf.expand_dims(batch_syntax_go_id, axis=-1), gen_ids], axis=1)
-                        cur_embs = tf.nn.embedding_lookup(
-                            self.shared_tensors['syntax_embedding_table'], cur_ids)
-                        cur_outputs = self.decode_syntax_template(cur_embs)
-
-                        cur_logit = tf.matmul(
-                            cur_outputs[: -1, :], self.shared_tensors['proj_syntax_w']
                         ) + self.shared_tensors['proj_syntax_b']
                         return cur_logit
 
@@ -753,7 +720,6 @@ class TsGraph:
                                  for o in range(eval_batch_size)], axis=0)
                             self.shared_tensors['template_simp_bias'] = template_simp_bias_beam
 
-                        # if l_id == 0:
                         beam_search_size = self.flags.beam_search_size
 
                         beam_ids, beam_score = beam_search.beam_search(
@@ -766,24 +732,24 @@ class TsGraph:
                             alpha=0.6,
                             eos_id=self.data.syntax_vocab.eos_id,
                             hard_length_constrain=hard_length_constrain,
-                            use_tpu=True #self.flags.use_tpu
+                            use_tpu=self.flags.use_tpu
                         )
                         top_beam_ids = beam_ids[:, 0, 1:]
 
                         top_beam_ids = tf.pad(top_beam_ids,
                                               [[0, 0],
                                                [0, self.flags.max_syntax_trg_len - tf.shape(top_beam_ids)[1]]])
+
                         confident_score = -beam_score[:, 0] / tf.to_float(tf.shape(top_beam_ids)[1])
                         top_beam_ids.set_shape([eval_batch_size, self.flags.max_syntax_trg_len])
+                        if self.flags.use_tpu or True:
+                            top_beam_ids = tf.where(
+                                tf.not_equal(top_beam_ids, self.data.syntax_vocab.go_id),
+                                top_beam_ids,
+                                tf.zeros_like(top_beam_ids, tf.int32)
+                            )
 
                         hard_length_constrain = tf.reduce_sum(tf.cast(tf.not_equal(top_beam_ids, 0), tf.int32), axis=-1)
-
-                        # print_op = tf.print(
-                        #     "top_beam_ids:", top_beam_ids,
-                        #     "hard_length_constrain", hard_length_constrain,
-                        #     summarize=-1)
-                        # with tf.control_dependencies([print_op]):
-                        #     top_beam_ids = tf.identity(top_beam_ids)
 
                         confident_scores.append(confident_score)
                         template_simp_prev_ids_layers.append(top_beam_ids)
@@ -813,6 +779,7 @@ class TsGraph:
                     self.shared_tensors['template_simp_bias'] = template_simp_bias_beam
 
                 def symbol_to_logits_fn(gen_ids, i):
+                    gen_ids = gen_ids[:, :(1+i)]
                     print('Decode word for ids=%s i=%s' % (gen_ids, i))
                     cur_embs = tf.nn.embedding_lookup(
                         self.shared_tensors['word_embedding_table'], gen_ids)
@@ -828,21 +795,6 @@ class TsGraph:
                     ) + self.shared_tensors['proj_word_b']
                     return cur_logit
 
-                def symbol_to_logits_fn_old(gen_ids, i):
-                    gen_ids = gen_ids[:, 1:]
-                    print('Decode word for ids=%s i=%s' % (gen_ids, i))
-                    cur_ids = tf.concat(
-                        [tf.expand_dims(batch_go_id, axis=-1), gen_ids], axis=1)
-                    cur_embs = tf.nn.embedding_lookup(
-                        self.shared_tensors['word_embedding_table'], cur_ids)
-                    cur_outputs = self.decode_srcs_to_trgs(
-                        trg_emb=cur_embs, trg_input_ids=cur_ids)
-
-                    cur_logit = tf.matmul(
-                        cur_outputs[:, -1, :], self.shared_tensors['proj_word_w']
-                    ) + self.shared_tensors['proj_word_b']
-                    return cur_logit
-
                 beam_ids, beam_score = beam_search.beam_search(
                     symbols_to_logits_fn=symbol_to_logits_fn,
                     initial_ids=tf.ones(
@@ -853,7 +805,7 @@ class TsGraph:
                     alpha=0.6,
                     eos_id=self.data.vocab.eos_id,
                     hard_length_constrain=hard_length_constrain,
-                    use_tpu=True #self.flags.use_tpu
+                    use_tpu=self.flags.use_tpu
                 )
                 top_beam_ids = beam_ids[:, 0, 1:]
                 top_beam_ids = tf.pad(top_beam_ids,
@@ -861,13 +813,12 @@ class TsGraph:
                                        [0, self.flags.max_trg_len - tf.shape(top_beam_ids)[1]]])
                 confident_score = -beam_score[:, 0] / tf.to_float(tf.shape(top_beam_ids)[1])
                 top_beam_ids.set_shape([eval_batch_size, self.flags.max_trg_len])
-
-                # print_op = tf.print(
-                #     "top_beam_ids:", top_beam_ids,
-                #     "hard_length_constrain", hard_length_constrain,
-                #     summarize=-1)
-                # with tf.control_dependencies([print_op]):
-                #     top_beam_ids = tf.identity(top_beam_ids)
+                if self.flags.use_tpu:
+                    top_beam_ids = tf.where(
+                        tf.not_equal(top_beam_ids, self.data.syntax_vocab.go_id),
+                        top_beam_ids,
+                        tf.zeros_like(top_beam_ids, tf.int32)
+                    )
 
                 outputs['gen_trg_ids'] = top_beam_ids
                 outputs['gen_trg_scores'] = confident_score
