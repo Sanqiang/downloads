@@ -42,7 +42,7 @@ def get_ckpt(modeldir, logdir, wait_second=10):
                 return None
 
 
-def _find_train_ckptfiles(path, is_delete):
+def _find_train_ckptfiles(path, is_delete, get_prefix=False):
     """Find checkpoint files based on its max steps.
        is_outdir indicates whether find from outdir or modeldir.
        note that outdir generated from train and eval copy them to modeldir.
@@ -62,7 +62,10 @@ def _find_train_ckptfiles(path, is_delete):
     #     for del_model_file in del_model_files:
     #         os.remove(path + del_model_file)
 
-    model_files = _get_model_files(max_step, path)
+    if get_prefix:
+        model_files = ckpt_prefix + str(max_step)
+    else:
+        model_files = _get_model_files(max_step, path)
     return model_files, max_step
 
 
