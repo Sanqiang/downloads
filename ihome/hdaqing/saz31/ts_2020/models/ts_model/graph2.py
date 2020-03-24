@@ -294,8 +294,9 @@ class TsGraph:
                         self.shared_tensors['template_simp_bias'] = None
                     else:
                         print('Real Decoder')
-                        self.shared_tensors['template_simp_outputs'] = tf.nn.dropout(
-                            self.shared_tensors['template_simp_outputs'], keep_prob=self.flags.drop_keep_rate)
+                        if self.flags.drop_keep_rate < 1:
+                            self.shared_tensors['template_simp_outputs'] = tf.nn.dropout(
+                                self.shared_tensors['template_simp_outputs'], keep_prob=self.flags.drop_keep_rate)
                 trg_outputs = transformer.transformer_decoder_parallel(
                     decoder_input=trg_emb,
                     decoder_self_attention_bias=trg_self_attention_bias,
