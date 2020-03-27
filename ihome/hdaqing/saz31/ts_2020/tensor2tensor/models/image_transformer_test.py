@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for Transformer."""
 
 from __future__ import absolute_import
@@ -26,7 +25,7 @@ from tensor2tensor.data_generators import problem_hparams
 from tensor2tensor.layers import common_image_attention
 from tensor2tensor.models import image_transformer
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class ImagetransformerTest(parameterized.TestCase, tf.test.TestCase):
@@ -43,12 +42,10 @@ class ImagetransformerTest(parameterized.TestCase, tf.test.TestCase):
     batch_size = 3
     size = 7
     vocab_size = 256
-    p_hparams = problem_hparams.test_problem_hparams(vocab_size,
-                                                     vocab_size,
-                                                     hparams)
-    inputs = np.random.randint(
+    p_hparams = problem_hparams.test_problem_hparams(vocab_size, vocab_size)
+    inputs = -1 + np.random.random_integers(
         vocab_size, size=(batch_size, 1, 1, 1))
-    targets = np.random.randint(
+    targets = -1 + np.random.random_integers(
         vocab_size, size=(batch_size, size, size, 3))
     with self.test_session() as session:
       features = {

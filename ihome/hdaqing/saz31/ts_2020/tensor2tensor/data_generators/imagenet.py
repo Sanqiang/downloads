@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """ImageNet."""
 
 from __future__ import absolute_import
@@ -23,11 +22,9 @@ import os
 
 from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import image_utils
-from tensor2tensor.data_generators import problem
-from tensor2tensor.layers import modalities
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # URLs and filenames for IMAGENET 32x32 data from
 # https://arxiv.org/abs/1601.06759.
@@ -98,19 +95,16 @@ def imagenet_pixelrnn_generator(tmp_dir,
       }
 
 
-def imagenet_preprocess_example(example, mode, resize_size=None,
-                                normalize=True):
+def imagenet_preprocess_example(example, mode, resize_size=None):
   """Preprocessing used for Imagenet and similar problems."""
   resize_size = resize_size or [299, 299]
   assert resize_size[0] == resize_size[1]
 
   image = example["inputs"]
   if mode == tf.estimator.ModeKeys.TRAIN:
-    image = preprocess_for_train(image, image_size=resize_size[0],
-                                 normalize=normalize)
+    image = preprocess_for_train(image, image_size=resize_size[0])
   else:
-    image = preprocess_for_eval(image, image_size=resize_size[0],
-                                normalize=normalize)
+    image = preprocess_for_eval(image, image_size=resize_size[0])
 
   example["inputs"] = image
   return example
@@ -146,11 +140,6 @@ class ImageImagenetRescaled(ImageImagenet):
     # return [224, 224]
     raise NotImplementedError()
 
-  @property
-  def normalize_image(self):
-    """Whether the image should be normalized in preprocessing."""
-    return True
-
   def dataset_filename(self):
     return "image_imagenet"  # Reuse Imagenet data.
 
@@ -160,8 +149,7 @@ class ImageImagenetRescaled(ImageImagenet):
 
   def preprocess_example(self, example, mode, _):
     return imagenet_preprocess_example(
-        example, mode, resize_size=self.rescale_size,
-        normalize=self.normalize_image)
+        example, mode, resize_size=self.rescale_size)
 
 
 @registry.register_problem
@@ -171,25 +159,6 @@ class ImageImagenet224(ImageImagenetRescaled):
   @property
   def rescale_size(self):
     return [224, 224]
-
-
-@registry.register_problem
-class ImageImagenet224NoNormalization(ImageImagenet224):
-  """Imagenet rescaled to 224x224 without normalization."""
-
-  @property
-  def normalize_image(self):
-    """Whether the image should be normalized in preprocessing."""
-    return False
-
-
-@registry.register_problem
-class ImageImagenet256(ImageImagenetRescaled):
-  """Imagenet rescaled to 256x256."""
-
-  @property
-  def rescale_size(self):
-    return [256, 256]
 
 
 @registry.register_problem
@@ -219,7 +188,7 @@ class ImageImagenet32(ImageImagenetRescaled):
 
 @registry.register_problem
 class ImageImagenet32Gen(ImageImagenet):
-  """Imagenet 32 from the pixen cnn paper."""
+  """Imagenet 32 from the pixen cnn paper"""
 
   @property
   def train_shards(self):
@@ -253,7 +222,7 @@ class ImageImagenet32Gen(ImageImagenet):
 
 @registry.register_problem
 class ImageImagenet64Gen(ImageImagenet):
-  """Imagenet 64 from the pixen cnn paper."""
+  """Imagenet 64 from the pixen cnn paper"""
 
   @property
   def train_shards(self):
@@ -332,33 +301,8 @@ class ImageImagenetMultiResolutionGen(ImageImagenet64Gen):
 
 
 @registry.register_problem
-class ImageImagenet64GenFlat(ImageImagenet64Gen):
-  """Imagenet 64 from the pixen cnn paper, as a flat array."""
-
-  def dataset_filename(self):
-    return "image_imagenet64_gen"  # Reuse data.
-
-  def preprocess_example(self, example, mode, unused_hparams):
-    example["inputs"].set_shape(
-        [_IMAGENET_MEDIUM_IMAGE_SIZE, _IMAGENET_MEDIUM_IMAGE_SIZE, 3])
-    example["inputs"] = tf.to_int64(example["inputs"])
-    example["inputs"] = tf.reshape(example["inputs"], (-1,))
-
-    del example["targets"]  # Ensure unconditional generation
-
-    return example
-
-  def hparams(self, defaults, model_hparams):
-    super(ImageImagenet64GenFlat, self).hparams(defaults, model_hparams)
-    # Switch to symbol modality
-    p = defaults
-    p.modality["inputs"] = modalities.ModalityType.SYMBOL_WEIGHTS_ALL
-    p.input_space_id = problem.SpaceID.GENERIC
-
-
-@registry.register_problem
 class ImageImagenet32Small(ImageImagenet):
-  """Imagenet small from the pixel cnn paper."""
+  """Imagenet small from the pixel cnn paper"""
 
   @property
   def is_small(self):
@@ -412,10 +356,8 @@ class Img2imgImagenet(image_utils.ImageProblem):
 
   def hparams(self, defaults, unused_model_hparams):
     p = defaults
-    p.modality = {"inputs": modalities.ModalityType.IDENTITY,
-                  "targets": modalities.ModalityType.IDENTITY}
-    p.vocab_size = {"inputs": 256,
-                    "targets": 256}
+    p.input_modality = {"inputs": ("image:identity", 256)}
+    p.target_modality = ("image:identity", 256)
     p.batch_size_multiplier = 256
     p.input_space_id = 1
     p.target_space_id = 1
@@ -588,39 +530,38 @@ def _normalize(image):
   return image
 
 
-def preprocess_for_train(image, image_size=224, normalize=True):
+def preprocess_for_train(image, image_size=224):
   """Preprocesses the given image for evaluation.
 
   Args:
     image: `Tensor` representing an image of arbitrary size.
     image_size: int, how large the output image should be.
-    normalize: bool, if True the image is normalized.
 
   Returns:
     A preprocessed image `Tensor`.
   """
-  if normalize: image = tf.to_float(image) / 255.0
   image = _random_crop(image, image_size)
-  if normalize: image = _normalize(image)
+  image = _normalize(image)
   image = _flip(image)
   image = tf.reshape(image, [image_size, image_size, 3])
   return image
 
 
-def preprocess_for_eval(image, image_size=224, normalize=True):
+def preprocess_for_eval(image, image_size=224):
   """Preprocesses the given image for evaluation.
 
   Args:
     image: `Tensor` representing an image of arbitrary size.
     image_size: int, how large the output image should be.
-    normalize: bool, if True the image is normalized.
 
   Returns:
     A preprocessed image `Tensor`.
   """
-  if normalize: image = tf.to_float(image) / 255.0
   image = _do_scale(image, image_size + 32)
-  if normalize: image = _normalize(image)
+  image = _normalize(image)
   image = _center_crop(image, image_size)
   image = tf.reshape(image, [image_size, image_size, 3])
   return image
+
+
+# ==============================================================================

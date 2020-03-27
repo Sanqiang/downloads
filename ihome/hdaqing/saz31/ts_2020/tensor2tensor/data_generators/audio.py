@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """TIMIT data generator."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import os
-import subprocess
+from subprocess import call
 import tarfile
 import wave
-from absl import flags
-import tensorflow.compat.v1 as tf
+# from tensor2tensor.data_generators import generator_utils
 
+import tensorflow as tf
+
+flags = tf.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("timit_paths", "",
@@ -58,7 +59,7 @@ def _collect_data(directory, input_ext, target_ext):
   #   if the datafile was "/path/to/datafile.wav" then the key would be
   #   "/path/to/datafile"
   # value: a pair of strings (input_filepath, target_filepath)
-  data_files = {}
+  data_files = dict()
   for root, _, filenames in os.walk(directory):
     input_files = [filename for filename in filenames if input_ext in filename]
     for input_filename in input_files:
@@ -76,7 +77,7 @@ def _get_audio_data(filepath):
   # Construct a true .wav file.
   out_filepath = filepath.strip(".WAV") + ".wav"
   # Assumes sox is installed on system. Sox converts from NIST SPHERE to WAV.
-  subprocess.call(["sox", filepath, out_filepath])
+  call(["sox", filepath, out_filepath])
   wav_file = wave.open(open(out_filepath))
   frame_count = wav_file.getnframes()
   byte_array = wav_file.readframes(frame_count)

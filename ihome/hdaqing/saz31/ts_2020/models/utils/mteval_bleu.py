@@ -1,6 +1,6 @@
 import copy as cp
 import subprocess
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import re
 import os
 

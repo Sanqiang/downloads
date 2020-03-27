@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data generators for LM1B data-set."""
 
 from __future__ import absolute_import
@@ -29,7 +28,7 @@ from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import text_problems
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def _original_vocab(tmp_dir):
@@ -108,7 +107,7 @@ class LanguagemodelLm1b32k(text_problems.Text2SelfProblem):
   """A language model on the 1B words corpus.
 
   Ratio of dev tokens (including eos) to dev words (including eos)
-  176923 / 159658 = 1.108137; multiply log_ppl by this to compare results.
+  176884 / 159658 = 1.107893; multiply log_ppl by this to compare results.
   """
 
   @property

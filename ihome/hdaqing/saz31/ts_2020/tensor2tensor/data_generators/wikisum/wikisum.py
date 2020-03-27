@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Wikipedia Summarization Problems."""
 
 from __future__ import absolute_import
@@ -33,10 +32,9 @@ from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import tokenizer
 from tensor2tensor.data_generators.wikisum import utils as cc_utils
-from tensor2tensor.layers import modalities
 from tensor2tensor.utils import metrics
 from tensor2tensor.utils import registry
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 PROCESS_FOLDER_PREFIX = "process"
 REF_SHARD_FILE_PREFIX = "references.tfrecords.gz"
@@ -85,14 +83,12 @@ class WikisumBase(problem.Problem):
     p = defaults
     p.stop_at_eos = True
 
-    p.vocab_size = {
-        "inputs": self._encoders["inputs"].vocab_size,
-        "targets": self._encoders["targets"].vocab_size,
+    source_vocab_size = self._encoders["inputs"].vocab_size
+    target_vocab_size = self._encoders["targets"].vocab_size
+    p.input_modality = {
+        "inputs": (registry.Modalities.SYMBOL, source_vocab_size)
     }
-    p.modality = {
-        "inputs": modalities.ModalityType.SYMBOL,
-        "targets": modalities.ModalityType.SYMBOL,
-    }
+    p.target_modality = (registry.Modalities.SYMBOL, target_vocab_size)
 
   def eval_metrics(self):
     return super(WikisumBase, self).eval_metrics() + [

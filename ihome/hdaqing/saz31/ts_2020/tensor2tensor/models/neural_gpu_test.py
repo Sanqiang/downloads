@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for Neural GPU."""
 
 from __future__ import absolute_import
@@ -24,7 +23,7 @@ from tensor2tensor.data_generators import problem_hparams
 from tensor2tensor.layers import common_hparams
 from tensor2tensor.models import neural_gpu
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class NeuralGPUTest(tf.test.TestCase):
@@ -37,11 +36,10 @@ class NeuralGPUTest(tf.test.TestCase):
     input_vocab_size = 9
     target_vocab_size = 11
     p_hparams = problem_hparams.test_problem_hparams(input_vocab_size,
-                                                     target_vocab_size,
-                                                     hparams)
-    inputs = np.random.randint(
+                                                     target_vocab_size)
+    inputs = -1 + np.random.random_integers(
         input_vocab_size, size=(batch_size, input_length, 1, 1))
-    targets = np.random.randint(
+    targets = -1 + np.random.random_integers(
         target_vocab_size, size=(batch_size, target_length, 1, 1))
     with self.test_session() as session:
       features = {

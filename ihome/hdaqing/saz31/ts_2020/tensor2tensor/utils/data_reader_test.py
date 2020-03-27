@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data reader test."""
 
 from __future__ import absolute_import
@@ -26,11 +25,10 @@ from six.moves import range  # pylint: disable=redefined-builtin
 
 from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import problem as problem_mod
-from tensor2tensor.layers import modalities
 from tensor2tensor.utils import data_reader
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 @registry.register_problem
@@ -50,11 +48,7 @@ class TestProblem(problem_mod.Problem):
         self.generator(data_dir, tmp_dir, False), dev_paths)
 
   def hparams(self, defaults, model_hparams):
-    hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SYMBOL,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {"inputs": 30,
-                     "targets": 30}
+    pass
 
   def example_reading_spec(self):
     data_fields = {
@@ -139,7 +133,7 @@ class DataReaderTest(tf.test.TestCase):
     self.assertAllEqual(list(range(1, max_len + 1)), sorted(ex_lens))
 
   def testBatchingSchemeMaxLength(self):
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=20,
         max_length=None,
         min_length_bucket=8,
@@ -147,7 +141,7 @@ class DataReaderTest(tf.test.TestCase):
         drop_long_sequences=False)
     self.assertGreater(scheme["max_length"], 10000)
 
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=20,
         max_length=None,
         min_length_bucket=8,
@@ -155,7 +149,7 @@ class DataReaderTest(tf.test.TestCase):
         drop_long_sequences=True)
     self.assertEqual(scheme["max_length"], 20)
 
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=20,
         max_length=15,
         min_length_bucket=8,
@@ -163,7 +157,7 @@ class DataReaderTest(tf.test.TestCase):
         drop_long_sequences=True)
     self.assertEqual(scheme["max_length"], 15)
 
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=20,
         max_length=15,
         min_length_bucket=8,
@@ -172,7 +166,7 @@ class DataReaderTest(tf.test.TestCase):
     self.assertGreater(scheme["max_length"], 10000)
 
   def testBatchingSchemeBuckets(self):
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=128,
         max_length=0,
         min_length_bucket=8,
@@ -190,7 +184,7 @@ class DataReaderTest(tf.test.TestCase):
     ]
     self.assertEqual(expected_batch_sizes, batch_sizes)
 
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=128,
         max_length=0,
         min_length_bucket=8,
@@ -200,7 +194,7 @@ class DataReaderTest(tf.test.TestCase):
     self.assertAllEqual([bs * 2 for bs in expected_batch_sizes], batch_sizes)
     self.assertEqual(expected_boundaries, boundaries)
 
-    scheme = data_reader.batching_scheme(
+    scheme = data_reader._batching_scheme(
         batch_size=128,
         max_length=0,
         min_length_bucket=8,

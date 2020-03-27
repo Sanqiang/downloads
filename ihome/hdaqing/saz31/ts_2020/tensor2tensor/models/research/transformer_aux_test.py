@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for tensor2tensor.models.research.transformer_aux."""
 
 from __future__ import absolute_import
@@ -24,7 +23,7 @@ from absl.testing import parameterized
 import numpy as np
 from tensor2tensor.data_generators import problem_hparams
 from tensor2tensor.models.research import transformer_aux
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class TransformerAuxTest(parameterized.TestCase, tf.test.TestCase):
@@ -86,13 +85,11 @@ class TransformerAuxTest(parameterized.TestCase, tf.test.TestCase):
     vocab_size = 9
     hparams = transformer_aux.transformer_aux_tiny()
     hparams.shift_values = "-5,1,2,3"
-    p_hparams = problem_hparams.test_problem_hparams(vocab_size,
-                                                     vocab_size,
-                                                     hparams)
+    p_hparams = problem_hparams.test_problem_hparams(vocab_size, vocab_size)
     hparams.problem_hparams = p_hparams
-    inputs = np.random.randint(
+    inputs = -1 + np.random.random_integers(
         vocab_size, size=(batch_size, input_length, 1, 1))
-    targets = np.random.randint(
+    targets = -1 + np.random.random_integers(
         vocab_size, size=(batch_size, target_length, 1, 1))
     features = {
         "inputs": tf.constant(inputs, dtype=tf.int32),

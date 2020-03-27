@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data generator for Wikipedia title to article dataset."""
 
 from __future__ import absolute_import
@@ -29,7 +28,7 @@ from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import text_problems
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 @registry.register_problem
@@ -393,19 +392,6 @@ class LanguagemodelWikiNorefV32kL1k(LanguagemodelWikiNorefV8kL1k):
   @property
   def max_chars_for_vocab(self):
     return 100 * (10 ** 6)
-
-
-@registry.register_problem
-class LanguagemodelWikiNorefV32kL16k(LanguagemodelWikiNorefV32kL1k):
-  """A language model on English Wikipedia.
-
-  References removed.  Chopped into segments of 16k tokens.
-  """
-
-  @property
-  def sequence_length(self):
-    """Length of each example (in tokens)."""
-    return 2**14
 
 
 @registry.register_problem

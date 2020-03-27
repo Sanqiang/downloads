@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Some customization of common_attention."""
 
 from __future__ import absolute_import
@@ -21,9 +20,9 @@ from __future__ import print_function
 
 from tensor2tensor.layers import common_attention
 from tensor2tensor.layers import common_layers
-from tensor2tensor.utils import contrib
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
+
 
 from tensorflow.contrib import slim
 from tensorflow.contrib.slim.python.slim.nets.resnet_v1 import resnet_v1_152
@@ -69,7 +68,7 @@ def image_embedding(images,
   }
 
   if trainable:
-    weights_regularizer = contrib.layers().l2_regularizer(weight_decay)
+    weights_regularizer = tf.contrib.layers.l2_regularizer(weight_decay)
   else:
     weights_regularizer = None
 
@@ -95,7 +94,7 @@ def image_embedding(images,
 
   if add_summaries:
     for v in end_points.values():
-      contrib.layers().summaries.summarize_activation(v)
+      tf.contrib.layers.summaries.summarize_activation(v)
 
   return net
 

@@ -1,4 +1,4 @@
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from google.protobuf.json_format import MessageToDict
 import base64
 
@@ -7,7 +7,7 @@ flags = tf.flags
 
 flags.DEFINE_string(
     'example_path',
-    '/Users/sanqiang/Downloads/data_example_v1_s3_l64_shuffle_shard_0.example',
+    '/Users/sanqiang/git/ts/text_simplification_data/example_v0_tpu/output.example',
     'The path for examples.')
 
 FLAGS = flags.FLAGS

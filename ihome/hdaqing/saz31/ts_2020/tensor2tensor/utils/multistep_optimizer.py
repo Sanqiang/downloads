@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Multi-step optimizers simulating large batches.
 
 Optimizer variants which make it possible to use very large batch sizes with
@@ -26,7 +25,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class MultistepAdamOptimizer(tf.train.AdamOptimizer):
@@ -52,7 +51,7 @@ class MultistepAdamOptimizer(tf.train.AdamOptimizer):
 
   def _get_iter_variable(self):
     graph = (
-        None if tf.executing_eagerly() else tf.get_default_graph())
+        None if tf.contrib.eager.in_eager_mode() else tf.get_default_graph())
     return self._get_non_slot_variable("iter", graph=graph)
 
   def _prepare(self):
@@ -99,19 +98,6 @@ class MultistepAdamOptimizer(tf.train.AdamOptimizer):
     dense_grad = tf.convert_to_tensor(grad)
     return self._apply_cond(
         super(MultistepAdamOptimizer, self)._apply_dense, dense_grad, var)
-
-  def _resource_apply_sparse_duplicate_indices(self, grad, var, indices):
-    tf.logging.warning("MultistepAdamOptimizer does not support sparse updates")
-    # Note that conversion to a dense Tensor handles duplicate `indices`
-    # correctly (summing them). A real sparse implementation will probably want
-    # to override _resource_apply_sparse instead so it gets them de-duplicated
-    # automatically.
-    dense_grad = tf.convert_to_tensor(
-        tf.IndexedSlices(values=grad, indices=indices,
-                         dense_shape=tf.shape(var)))
-    return self._apply_cond(
-        super(MultistepAdamOptimizer, self)._resource_apply_dense,
-        dense_grad, var)
 
   def _finish(self, update_ops, name_scope):
     """Updates beta_power variables every n batches and incrs counter."""

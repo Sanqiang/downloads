@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Query an exported model. Py2 only. Install tensorflow-serving-api."""
 from __future__ import absolute_import
 from __future__ import division
@@ -25,10 +24,9 @@ from six.moves import input  # pylint: disable=redefined-builtin
 
 from tensor2tensor import problems as problems_lib  # pylint: disable=unused-import
 from tensor2tensor.serving import serving_utils
-from tensor2tensor.utils import hparam
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import usr_dir
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 flags = tf.flags
 FLAGS = flags.FLAGS
@@ -81,7 +79,7 @@ def main(_):
   validate_flags()
   usr_dir.import_usr_dir(FLAGS.t2t_usr_dir)
   problem = registry.problem(FLAGS.problem)
-  hparams = hparam.HParams(
+  hparams = tf.contrib.training.HParams(
       data_dir=os.path.expanduser(FLAGS.data_dir))
   problem.get_hparams(hparams)
   request_fn = make_request_fn()
@@ -90,26 +88,14 @@ def main(_):
     outputs = serving_utils.predict([inputs], problem, request_fn)
     outputs, = outputs
     output, score = outputs
-    if len(score.shape) > 0:  # pylint: disable=g-explicit-length-test
-      print_str = """
-Input:
-{inputs}
-
-Output (Scores [{score}]):
-{output}
-        """
-      score_text = ",".join(["{:.3f}".format(s) for s in score])
-      print(print_str.format(inputs=inputs, output=output, score=score_text))
-    else:
-      print_str = """
+    print_str = """
 Input:
 {inputs}
 
 Output (Score {score:.3f}):
 {output}
-        """
-      print(print_str.format(inputs=inputs, output=output, score=score))
-
+    """
+    print(print_str.format(inputs=inputs, output=output, score=score))
     if FLAGS.inputs_once:
       break
 

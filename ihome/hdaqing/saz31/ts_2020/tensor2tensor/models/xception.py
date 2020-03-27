@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Xception."""
 
 from __future__ import absolute_import
@@ -27,7 +26,7 @@ from tensor2tensor.layers import common_layers
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def residual_block(x, hparams):
@@ -182,5 +181,5 @@ def xception_tiny_tpu():
   hparams.batch_size = 2
   hparams.num_hidden_layers = 2
   hparams.hidden_size = 128
-  hparams.optimizer = "true_adam"
+  hparams.optimizer = "TrueAdam"
   return hparams

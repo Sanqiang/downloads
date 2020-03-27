@@ -1,10 +1,10 @@
 import os
 import copy
 import json
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensor2tensor.models import transformer
 from tensor2tensor.layers import common_attention, common_layers
-from tensor2tensor.utils import beam_search as beam_search
+from tensor2tensor.utils import beam_search_syntax as beam_search
 from language_model.gpt2 import model
 from models.ts_model.seq_loss import sequence_loss
 from language_model.bert.modeling_t2t import BertModel, BertConfig

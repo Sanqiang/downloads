@@ -1,11 +1,11 @@
 import os
 import copy
 import json
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensor2tensor.models import transformer
-from tensor2tensor.layers import common_attention, transformer_layers
-from tensor2tensor.utils import beam_search as beam_search
-from tensor2tensor.utils.beam_search import fast_tpu_gather
+from tensor2tensor.layers import common_attention
+from tensor2tensor.utils import beam_search_tpu as beam_search
+from tensor2tensor.utils.beam_search_tpu import fast_tpu_gather
 from language_model.gpt2 import model
 from models.ts_model.seq_loss import sequence_loss
 from language_model.bert.modeling_t2t import BertModel, BertConfig
@@ -215,7 +215,7 @@ class TsGraph:
 
     def encode_guild_sentence(self, guild_embs, guild_bias):
         with tf.variable_scope('guild_encoder', reuse=tf.AUTO_REUSE):
-            guild_outputs = transformer_layers.transformer_encoder(
+            guild_outputs = transformer.transformer_encoder(
                 guild_embs, guild_bias, self.hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
         guild_outputs = common_attention.add_timing_signal_1d(guild_outputs)
@@ -223,7 +223,7 @@ class TsGraph:
 
     def encode_syntax_template(self, template_embs, template_bias):
         with tf.variable_scope('syntax_encoder', reuse=tf.AUTO_REUSE):
-            template_outputs = transformer_layers.transformer_encoder(
+            template_outputs = transformer.transformer_encoder(
                 template_embs, template_bias, self.syntax_hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
         template_outputs = common_attention.add_timing_signal_1d(template_outputs)
@@ -237,7 +237,7 @@ class TsGraph:
             trg_syntax_length = tf.shape(trg_syntax_emb)[1]
             trg_self_attention_bias = common_attention.attention_bias_lower_triangle(
                 trg_syntax_length)
-            trg_syntax_outputs = transformer_layers.transformer_decoder_parallel(
+            trg_syntax_outputs = transformer.transformer_decoder_parallel(
                 decoder_input=trg_syntax_emb,
                 decoder_self_attention_bias=trg_self_attention_bias,
                 encoder_output=self.shared_tensors['src_outputs'],
@@ -297,7 +297,7 @@ class TsGraph:
                         if self.flags.drop_keep_rate < 1:
                             self.shared_tensors['template_simp_outputs'] = tf.nn.dropout(
                                 self.shared_tensors['template_simp_outputs'], keep_prob=self.flags.drop_keep_rate)
-                trg_outputs = transformer_layers.transformer_decoder_parallel(
+                trg_outputs = transformer.transformer_decoder_parallel(
                     decoder_input=trg_emb,
                     decoder_self_attention_bias=trg_self_attention_bias,
                     encoder_output=self.shared_tensors['src_outputs'],

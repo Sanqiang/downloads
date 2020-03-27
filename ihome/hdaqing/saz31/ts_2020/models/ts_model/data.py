@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from language_model.gpt2 import encoder
 from language_model.bert import tokenization
 from models.utils.control_utils import ControlMethod

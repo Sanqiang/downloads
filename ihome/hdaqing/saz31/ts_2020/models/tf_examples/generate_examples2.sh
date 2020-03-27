@@ -14,6 +14,4 @@ module restore
 export PYTHONPATH="${PYTHONPATH}:/ihome/hdaqing/saz31/ts_2020"
 
 # Run the job
-export PYTHONHASHSEED=0
-srun python generate_examples.py  --cur_thread $SLURM_ARRAY_TASK_ID --num_thread 512
-
+srun python generate_examples.py

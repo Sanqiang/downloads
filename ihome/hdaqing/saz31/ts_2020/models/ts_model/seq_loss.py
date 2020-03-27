@@ -1,7 +1,12 @@
 """ Sequence Loss adapted from
     https://github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/loss.py"""
 
-import tensorflow.compat.v1 as tf
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import nn_ops
+
+import tensorflow as tf
 
 
 def sequence_loss(logits,
@@ -59,40 +64,40 @@ def sequence_loss(logits,
     raise ValueError("Weights must be a [batch_size x sequence_length] "
                      "tensor")
 
-  with tf.name_scope(name, "sequence_loss", [logits, targets, weights]):
-    num_classes = tf.shape(logits)[2]
-    logits_flat = tf.reshape(logits, [-1, num_classes])
-    targets = tf.reshape(targets, [-1])
+  with ops.name_scope(name, "sequence_loss", [logits, targets, weights]):
+    num_classes = array_ops.shape(logits)[2]
+    logits_flat = array_ops.reshape(logits, [-1, num_classes])
+    targets = array_ops.reshape(targets, [-1])
     if softmax_loss_function is None:
-      crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
+      crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
           labels=targets, logits=logits_flat)
     else:
       targets = tf.expand_dims(targets, -1)
       dims = w.get_shape()[1].value
-      decoder_outputs = tf.reshape(decoder_outputs, [-1, dims])
+      decoder_outputs = array_ops.reshape(decoder_outputs, [-1, dims])
       crossent = softmax_loss_function(labels=targets, inputs=decoder_outputs, num_sampled=number_samples,
                                        weights=w,
                                        biases=b,
                                        num_classes=logits.get_shape()[2].value)
       print('Use Sampled Softmax with number of samples:' + str(number_samples))
-    crossent *= tf.reshape(weights, [-1])
+    crossent *= array_ops.reshape(weights, [-1])
     if average_across_timesteps and average_across_batch:
-      crossent = tf.reduce_sum(crossent)
-      total_size = tf.reduce_sum(weights)
+      crossent = math_ops.reduce_sum(crossent)
+      total_size = math_ops.reduce_sum(weights)
       total_size += 1e-12  # to avoid division by 0 for all-0 weights
       crossent /= total_size
     else:
-      batch_size = tf.shape(logits)[0]
-      sequence_length = tf.shape(logits)[1]
-      crossent = tf.reshape(crossent, [batch_size, sequence_length])
+      batch_size = array_ops.shape(logits)[0]
+      sequence_length = array_ops.shape(logits)[1]
+      crossent = array_ops.reshape(crossent, [batch_size, sequence_length])
     if average_across_timesteps and not average_across_batch:
-      crossent = tf.reduce_sum(crossent, axis=[1])
-      total_size = tf.reduce_sum(weights, axis=[1])
+      crossent = math_ops.reduce_sum(crossent, axis=[1])
+      total_size = math_ops.reduce_sum(weights, axis=[1])
       total_size += 1e-12  # to avoid division by 0 for all-0 weights
       crossent /= total_size
     if not average_across_timesteps and average_across_batch:
-      crossent = tf.reduce_sum(crossent, axis=[0])
-      total_size = tf.reduce_sum(weights, axis=[0])
+      crossent = math_ops.reduce_sum(crossent, axis=[0])
+      total_size = math_ops.reduce_sum(weights, axis=[0])
       total_size += 1e-12  # to avoid division by 0 for all-0 weights
       crossent /= total_size
     return crossent

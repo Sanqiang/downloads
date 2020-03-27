@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Script to average values of variables in a list of checkpoint files."""
 from __future__ import absolute_import
 from __future__ import division
@@ -22,7 +21,7 @@ import os
 import numpy as np
 import six
 from six.moves import zip  # pylint: disable=redefined-builtin
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 flags = tf.flags
 FLAGS = flags.FLAGS
@@ -75,13 +74,13 @@ def main(_):
   tf.logging.info("Reading variables and averaging checkpoints:")
   for c in checkpoints:
     tf.logging.info("%s ", c)
-  var_list = tf.train.list_variables(checkpoints[0])
+  var_list = tf.contrib.framework.list_variables(checkpoints[0])
   var_values, var_dtypes = {}, {}
   for (name, shape) in var_list:
     if not name.startswith("global_step"):
       var_values[name] = np.zeros(shape)
   for checkpoint in checkpoints:
-    reader = tf.train.load_checkpoint(checkpoint)
+    reader = tf.contrib.framework.load_checkpoint(checkpoint)
     for name in var_values:
       tensor = reader.get_tensor(name)
       var_dtypes[name] = tensor.dtype
@@ -90,11 +89,10 @@ def main(_):
   for name in var_values:  # Average.
     var_values[name] /= len(checkpoints)
 
-  with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
-    tf_vars = [
-        tf.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[v])
-        for v in var_values
-    ]
+  tf_vars = [
+      tf.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[name])
+      for v in var_values
+  ]
   placeholders = [tf.placeholder(v.dtype, shape=v.shape) for v in tf_vars]
   assign_ops = [tf.assign(v, p) for (v, p) in zip(tf_vars, placeholders)]
   global_step = tf.Variable(
@@ -103,7 +101,7 @@ def main(_):
 
   # Build a model consisting only of variables, set them to the average values.
   with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
+    sess.run(tf.initialize_all_variables())
     for p, assign_op, (name, value) in zip(placeholders, assign_ops,
                                            six.iteritems(var_values)):
       sess.run(assign_op, {p: value})
@@ -114,4 +112,4 @@ def main(_):
 
 
 if __name__ == "__main__":
-  tf.compat.v1.app.run()
+  tf.app.run()

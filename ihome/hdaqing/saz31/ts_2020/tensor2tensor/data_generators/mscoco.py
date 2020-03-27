@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """MS COCO."""
 
 from __future__ import absolute_import
@@ -32,7 +31,7 @@ from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import translate_ende
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # URLs and filenames for MSCOCO data.
 _MSCOCO_ROOT_URL = "http://msvocds.blob.core.windows.net/"
@@ -107,7 +106,7 @@ def mscoco_generator(data_dir,
   caption_file = io.open(caption_filepath)
   caption_json = json.load(caption_file)
   # Dictionary from image_id to ((filename, height, width), captions).
-  image_dict = {}
+  image_dict = dict()
   for image in caption_json["images"]:
     image_dict[image["id"]] = [(image["file_name"], image["height"],
                                 image["width"]), []]
@@ -125,7 +124,7 @@ def mscoco_generator(data_dir,
   for image_info, labels in data:
     image_filename = image_info[0]
     image_filepath = os.path.join(tmp_dir, prefix, image_filename)
-    with tf.gfile.Open(image_filepath, "rb") as f:
+    with tf.gfile.Open(image_filepath, "r") as f:
       encoded_image_data = f.read()
       height, width = image_info[1], image_info[2]
       for label in labels:

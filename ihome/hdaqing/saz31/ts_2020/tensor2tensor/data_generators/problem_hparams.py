@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Hyperparameters defining different problems.
 
 """
@@ -23,10 +22,10 @@ from __future__ import print_function
 import os
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import text_encoder
-from tensor2tensor.layers import modalities
+from tensor2tensor.layers import modalities  # pylint: disable=unused-import
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # TODO(rsepassi): Merge these problems with their data generators. Currently
 # they only implement the hparams.
@@ -68,10 +67,10 @@ class AudioTimitCharactersTune(AudioTimitProblem):
 
   def hparams(self, defaults, model_hparams):
     hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SPEECH_RECOGNITION,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {"inputs": None,
-                     "targets": 256}
+    hp.input_modality = {
+        "inputs": (registry.Modalities.AUDIO, None),
+    }
+    hp.target_modality = (registry.Modalities.SYMBOL, 256)
 
 
 @registry.register_problem
@@ -93,12 +92,11 @@ class AudioTimitTokens8kTune(AudioTimitProblem):
 
   def hparams(self, defaults, model_hparams):
     hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SPEECH_RECOGNITION,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {
-        "inputs": None,
-        "targets": self.get_feature_encoders()["targets"].vocab_size,
+    hp.input_modality = {
+        "inputs": (registry.Modalities.AUDIO, None),
     }
+    hp.target_modality = (registry.Modalities.SYMBOL,
+                          self.get_feature_encoders()["targets"].vocab_size)
     hp.batch_size_multiplier = 256
     hp.loss_multiplier = 2.0
     hp.input_space_id = 13
@@ -130,12 +128,12 @@ class ParsingEnglishPtb8k(problem.Problem):
 
   def hparams(self, defaults, model_hparams):
     hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SYMBOL,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {
-        "inputs": self.get_feature_encoders()["inputs"].vocab_size,
-        "targets": self.get_feature_encoders()["targets"].vocab_size,
+    hp.input_modality = {
+        "inputs": (registry.Modalities.SYMBOL,
+                   self.get_feature_encoders()["inputs"].vocab_size),
     }
+    hp.target_modality = (registry.Modalities.SYMBOL,
+                          self.get_feature_encoders()["targets"].vocab_size)
     hp.batch_size_multiplier = 256
     hp.loss_multiplier = 2.0
     hp.input_space_id = 3
@@ -174,12 +172,12 @@ class ParsingEnglishPtb16k(problem.Problem):
 
   def hparams(self, defaults, model_hparams):
     hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SYMBOL,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {
-        "inputs": self.get_feature_encoders()["inputs"].vocab_size,
-        "targets": self.get_feature_encoders()["targets"].vocab_size,
+    hp.input_modality = {
+        "inputs": (registry.Modalities.SYMBOL,
+                   self.get_feature_encoders()["inputs"].vocab_size),
     }
+    hp.target_modality = (registry.Modalities.SYMBOL,
+                          self.get_feature_encoders()["targets"].vocab_size)
     hp.input_space_id = 3
     hp.target_space_id = 15
 
@@ -194,15 +192,13 @@ class TestProblem(problem.Problem):
 
   def hparams(self, defaults, model_hparams):
     hp = defaults
-    hp.modality = {"inputs": modalities.ModalityType.SYMBOL,
-                   "targets": modalities.ModalityType.SYMBOL}
-    hp.vocab_size = {"inputs": self.input_vocab_size,
-                     "targets": self.target_vocab_size}
+    hp.input_modality = {
+        "inputs": (registry.Modalities.SYMBOL, self.input_vocab_size)
+    }
+    hp.target_modality = (registry.Modalities.SYMBOL, self.target_vocab_size)
 
 
-def test_problem_hparams(input_vocab_size=None,
-                         target_vocab_size=None,
-                         model_hparams=None):
+def test_problem_hparams(input_vocab_size=None, target_vocab_size=None):
   """Problem hparams for testing model bodies."""
   p = TestProblem(input_vocab_size, target_vocab_size)
-  return p.get_hparams(model_hparams)
+  return p.get_hparams()

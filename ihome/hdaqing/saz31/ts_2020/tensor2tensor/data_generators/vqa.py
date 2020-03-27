@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data generators for VQA data sets."""
 
 from __future__ import absolute_import
@@ -34,12 +33,10 @@ from tensor2tensor.data_generators import image_utils
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import vqa_utils
-from tensor2tensor.layers import modalities
-from tensor2tensor.utils import contrib
 from tensor2tensor.utils import metrics
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def _get_vqa_v2_annotations(directory,
@@ -131,16 +128,12 @@ class ImageQuestion2MultilabelProblem(image_utils.ImageProblem):
     question_encoder = self._encoders["question"]
     targets_encoder = self._encoders["targets"]
 
-    p.modality = {
-        "inputs": modalities.ModalityType.IDENTITY,
-        "question": modalities.ModalityType.SYMBOL,
-        "targets": modalities.ModalityType.MULTI_LABEL,
+    p.input_modality = {
+        "inputs": (registry.Modalities.IMAGE + ":identity", None),
+        "question": (registry.Modalities.SYMBOL, question_encoder.vocab_size)
     }
-    p.vocab_size = {
-        "inputs": None,
-        "question": question_encoder.vocab_size,
-        "targets": targets_encoder.vocab_size,
-    }
+    p.target_modality = (registry.Modalities.CLASS_LABEL + ":multi_label",
+                         targets_encoder.vocab_size)
     p.input_space_id = problem.SpaceID.IMAGE  # multiple input features?
     p.target_space_id = self.target_space_id
 
@@ -217,11 +210,12 @@ class ImageVqav2Tokens10kLabels3k(ImageQuestion2MultilabelProblem):
     data_fields["image/answer"] = tf.FixedLenSequenceFeature(
         (), tf.int64, allow_missing=True)
 
-    slim = contrib.slim()
-    data_items_to_decoders["question"] = slim.tfexample_decoder.Tensor(
-        "image/question")
-    data_items_to_decoders["targets"] = slim.tfexample_decoder.Tensor(
-        "image/answer")
+    data_items_to_decoders[
+        "question"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/question")
+    data_items_to_decoders[
+        "targets"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/answer")
     return data_fields, data_items_to_decoders
 
   def preprocess_example(self, example, mode, hparams):
@@ -325,7 +319,6 @@ class ImageVqav2RcnnFeatureTokens10kLabels3k(ImageVqav2Tokens10kLabels3k):
     return example
 
   def example_reading_spec(self):
-    slim = contrib.slim()
     data_fields, data_items_to_decoders = {}, {}
     data_fields["image/feature"] = tf.FixedLenSequenceFeature(
         (), tf.float32, allow_missing=True)
@@ -338,19 +331,25 @@ class ImageVqav2RcnnFeatureTokens10kLabels3k(ImageVqav2Tokens10kLabels3k):
     data_fields["image/answer"] = tf.FixedLenSequenceFeature(
         (), tf.int64, allow_missing=True)
 
-    data_items_to_decoders["inputs"] = slim.tfexample_decoder.Tensor(
-        "image/feature")
-    data_items_to_decoders["question_id"] = slim.tfexample_decoder.Tensor(
-        "image/question_id")
-    data_items_to_decoders["image_id"] = slim.tfexample_decoder.Tensor(
-        "image/image_id")
+    data_items_to_decoders[
+        "inputs"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/feature")
+    data_items_to_decoders[
+        "question_id"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/question_id")
+    data_items_to_decoders[
+        "image_id"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/image_id")
 
-    data_items_to_decoders["spatial_feature"] = slim.tfexample_decoder.Tensor(
-        "image/spatial_feature")
-    data_items_to_decoders["question"] = slim.tfexample_decoder.Tensor(
-        "image/question")
-    data_items_to_decoders["targets"] = slim.tfexample_decoder.Tensor(
-        "image/answer")
+    data_items_to_decoders[
+        "spatial_feature"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/spatial_feature")
+    data_items_to_decoders[
+        "question"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/question")
+    data_items_to_decoders[
+        "targets"] = tf.contrib.slim.tfexample_decoder.Tensor(
+            "image/answer")
 
     return data_fields, data_items_to_decoders
 

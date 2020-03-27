@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Utilities for creating Sparsely-Gated Mixture-of-Experts Layers.
 
 See "Outrageously Large Neural Networks"
@@ -32,7 +31,7 @@ from six.moves import zip  # pylint: disable=redefined-builtin
 from tensor2tensor.layers import common_layers
 from tensor2tensor.layers.vq_discrete import DiscreteBottleneck
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 DEFAULT_DEV_STRING = "existing_device"
 
@@ -364,7 +363,7 @@ def cv_squared(x):
   epsilon = 1e-10
   float_size = tf.to_float(tf.size(x)) + epsilon
   mean = tf.reduce_sum(x) / float_size
-  variance = tf.reduce_sum(tf.squared_difference(x, mean)) / float_size
+  variance = tf.reduce_sum(tf.square(x - mean)) / float_size
   return variance / (tf.square(mean) + epsilon)
 
 
@@ -636,7 +635,7 @@ class PadRemover(object):
           x,
           indices=self.nonpad_ids,
       )
-      if not tf.executing_eagerly():
+      if not tf.contrib.eager.in_eager_mode():
         # This is a hack but for some reason, gather_nd return a tensor of
         # undefined shape, so the shape is set up manually
         x.set_shape([None] + x_shape[1:])
@@ -986,9 +985,78 @@ def ffn_expert_fn(input_size,
 def flatten_all_but_last(a):
   """Flatten all dimensions of a except the last."""
   ret = tf.reshape(a, [-1, tf.shape(a)[-1]])
-  if not tf.executing_eagerly():
+  if not tf.contrib.eager.in_eager_mode():
     ret.set_shape([None] + a.get_shape().as_list()[-1:])
   return ret
+
+
+def distributed_moe(data_parallelism,
+                    expert_devices,
+                    xs,
+                    train,
+                    input_size,
+                    expert_fn,
+                    num_experts,
+                    k=2,
+                    loss_coef=1e-2,
+                    name=None):
+  """Call a distributed mixture of experts.
+
+  Args:
+    data_parallelism: a expert_utils.Parallelism object.
+    expert_devices: a list of strings.  We round-robin the experts across these
+      devices.
+    xs: a list of input tensors, each with shape [... , input_size]
+    train: a boolean scalar.
+    input_size: an integer (input size for this layer)
+    expert_fn: a unary function for each expert to run
+       It should take a Tensor with shape [batch_size, input_size]
+       and return a Tensor with shape [batch_size, output_size].
+       e.g. ffn_expert_fn(...)
+    num_experts: an integer - number of experts
+    k: an integer - how many experts to use for each batch element
+    loss_coef: a scalar - multiplier on load-balancing losses
+    name: a string
+
+  Returns:
+    ys: a list of tensors.  Each Tensor has the same shape as the corresponding
+      Tensor in xs, except for the last dimension, which is output_size.
+    extra_training_loss: a scalar.  This should be added into the overall
+      training loss of the model.  The backpropagation of this loss
+      encourages all experts to be approximately equally used across a batch.
+  """
+  dp = data_parallelism
+  # create a parallelism object for running the experts.
+  #   We use the default of reuse=False.  Otherwise, the experts would all
+  #   use the same variables.
+  ep = Parallelism(
+      [expert_devices[i % len(expert_devices)] for i in range(num_experts)],
+      reuse=None)
+  # Experts expect 2d input tensors, so flatten the batch dimension and all
+  # spatial dimensions together.
+  xs_flat = dp(tf.reshape, xs, [[-1, input_size]] * dp.n)
+  with tf.variable_scope(name, default_name="moe"):
+    # The gates indicate which batch elements go to which tensors.
+    # load is a measure of approximately how many examples go to each expert
+    gates, load = dp(noisy_top_k_gating,
+                     xs_flat,
+                     num_experts,
+                     train,
+                     k,
+                     initializer=tf.zeros_initializer(),
+                     noisy_gating=True,
+                     noise_epsilon=1e-2)
+    # This magic object helps us shuffle data between datashards and experts.
+    dispatcher = DistributedSparseDispatcher(dp, ep, gates)
+    expert_in = dispatcher.dispatch(xs_flat)
+    expert_out = ep(expert_fn, expert_in)
+    ys_flat = dispatcher.combine(expert_out)
+    ys = dp(common_layers.reshape_like, ys_flat, xs)
+    # compute some load-balancing losses.
+    load = tf.add_n(load)
+    importance = tf.add_n(dp(tf.reduce_sum, gates, 0))
+    loss = loss_coef * (cv_squared(importance) + cv_squared(load))
+    return ys, loss
 
 
 def local_moe(x,
@@ -1044,7 +1112,7 @@ def local_moe(x,
           noisy_gating=True,
           noise_epsilon=1e-2)
       importance = tf.reduce_sum(gates, 0)
-      loss = (cv_squared(importance) + cv_squared(load))
+      loss = loss_coef * (cv_squared(importance) + cv_squared(load))
     else:
       assert hparams.gating_type == "vq"
       tf.logging.info("Using VQ gating")

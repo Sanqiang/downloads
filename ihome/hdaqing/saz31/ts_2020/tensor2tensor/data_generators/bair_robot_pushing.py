@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Berkeley (BAIR) robot pushing dataset.
 
 Self-Supervised Visual Planning with Temporal Skip Connections
@@ -32,11 +31,9 @@ import numpy as np
 from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import video_utils
-from tensor2tensor.layers import modalities
-from tensor2tensor.utils import contrib
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 DATA_URL = (
     "http://rail.eecs.berkeley.edu/datasets/bair_robot_pushing_dataset_v0.tar")
@@ -68,17 +65,16 @@ class VideoBairRobotPushing(video_utils.VideoProblem):
   def is_generate_per_split(self):
     return True
 
-  # num_train_files * num_videos * num_frames
   @property
   def total_number_of_frames(self):
-    return 167 * 256 * 30
-
-  def max_frames_per_video(self, hparams):
-    return 30
+    return 1305600
 
   @property
   def random_skip(self):
     return False
+
+  def eval_metrics(self):
+    return []
 
   @property
   def only_keep_videos_from_0th_frame(self):
@@ -89,31 +85,25 @@ class VideoBairRobotPushing(video_utils.VideoProblem):
     return True
 
   @property
-  def dataset_splits(self):
-    """Splits of data to produce and number of output shards for each."""
-    return [
-        {"split": problem.DatasetSplit.TRAIN, "shards": 10},
-        {"split": problem.DatasetSplit.EVAL, "shards": 1},
-        {"split": problem.DatasetSplit.TEST, "shards": 1}]
-
-  @property
   def extra_reading_spec(self):
     """Additional data fields to store on disk and their decoders."""
     data_fields = {
         "frame_number": tf.FixedLenFeature([1], tf.int64),
     }
     decoders = {
-        "frame_number":
-            contrib.slim().tfexample_decoder.Tensor(tensor_key="frame_number"),
+        "frame_number": tf.contrib.slim.tfexample_decoder.Tensor(
+            tensor_key="frame_number"),
     }
     return data_fields, decoders
 
   def hparams(self, defaults, unused_model_hparams):
     p = defaults
-    p.modality = {"inputs": modalities.ModalityType.VIDEO,
-                  "targets": modalities.ModalityType.VIDEO}
-    p.vocab_size = {"inputs": 256,
-                    "targets": 256}
+    p.input_modality = {
+        "inputs": ("video", 256),
+    }
+    p.target_modality = {
+        "targets": ("video", 256),
+    }
 
   def parse_frames(self, filenames):
     image_key = "{}/image_aux1/encoded"
@@ -154,19 +144,12 @@ class VideoBairRobotPushing(video_utils.VideoProblem):
     tar.extractall(tmp_dir)
     tar.close()
 
-    if dataset_split == problem.DatasetSplit.TEST:
-      base_dir = os.path.join(tmp_dir, "softmotion30_44k/test/*")
-      filenames = tf.gfile.Glob(base_dir)
-    else:
+    if dataset_split == problem.DatasetSplit.TRAIN:
       base_dir = os.path.join(tmp_dir, "softmotion30_44k/train/*")
-      filenames = tf.gfile.Glob(base_dir)
+    else:
+      base_dir = os.path.join(tmp_dir, "softmotion30_44k/test/*")
 
-      # the test-set contains just 256 videos so this should be sufficient.
-      if dataset_split == problem.DatasetSplit.TRAIN:
-        filenames = filenames[:-2]
-      else:
-        filenames = filenames[-2:]
-
+    filenames = tf.gfile.Glob(base_dir)
     for frame_number, frame, state, action in self.parse_frames(filenames):
       yield {
           "frame_number": [frame_number],
@@ -188,9 +171,9 @@ class VideoBairRobotPushingWithActions(VideoBairRobotPushing):
         "action": tf.FixedLenFeature([4], tf.float32),
     }
     decoders = {
-        "frame_number":
-            contrib.slim().tfexample_decoder.Tensor(tensor_key="frame_number"),
-        "action":
-            contrib.slim().tfexample_decoder.Tensor(tensor_key="action"),
+        "frame_number": tf.contrib.slim.tfexample_decoder.Tensor(
+            tensor_key="frame_number"),
+        "action": tf.contrib.slim.tfexample_decoder.Tensor(tensor_key="action"),
     }
     return data_fields, decoders
+

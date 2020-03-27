@@ -195,7 +195,7 @@ def SARIsent(ssent, csent, rsents, asreward=False):
 # Our implementation of corpus-level SARI
 # Align with Dress
 import os
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import re
 import subprocess
 

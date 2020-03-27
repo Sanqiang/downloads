@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Problem definitions for Allen Brain Atlas problems.
 
 Notes:
@@ -39,12 +38,10 @@ from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import image_utils
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import text_encoder
-from tensor2tensor.layers import modalities
-from tensor2tensor.utils import contrib
 from tensor2tensor.utils import metrics
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 _BASE_EXAMPLE_IMAGE_SIZE = 64
 
@@ -351,7 +348,7 @@ class Img2imgAllenBrain(problem.Problem):
 
     data_items_to_decoders = {
         "targets":
-            contrib.slim().tfexample_decoder.Image(
+            tf.contrib.slim.tfexample_decoder.Image(
                 image_key="image/encoded",
                 format_key="image/format",
                 channels=self.num_channels),
@@ -376,10 +373,8 @@ class Img2imgAllenBrain(problem.Problem):
 
   def hparams(self, defaults, unused_model_hparams):
     p = defaults
-    p.modality = {"inputs": modalities.ModalityType.IDENTITY,
-                  "targets": modalities.ModalityType.IDENTITY}
-    p.vocab_size = {"inputs": 256,
-                    "targets": 256}
+    p.input_modality = {"inputs": ("image:identity", 256)}
+    p.target_modality = ("image:identity", 256)
     p.batch_size_multiplier = 256
     p.input_space_id = problem.SpaceID.IMAGE
     p.target_space_id = problem.SpaceID.IMAGE
@@ -443,3 +438,4 @@ class Img2imgAllenBrainDim16to16Paint1(Img2imgAllenBrain):
   @property
   def inpaint_fraction(self):
     return 0.01
+

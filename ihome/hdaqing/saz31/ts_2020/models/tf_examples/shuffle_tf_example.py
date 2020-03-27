@@ -1,20 +1,23 @@
 import os
+import glob
+import json
 import random
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
+import collections
 
 flags = tf.flags
 
 flags.DEFINE_string(
     'example_path',
-    '/zfs1/hdaqing/saz31/dataset/example_v2_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/example_v1_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
     'output_path',
-    '/zfs1/hdaqing/saz31/dataset/example_v2_s3_l64_shuffle/',
+    '/zfs1/hdaqing/saz31/dataset/example_v1_s3_l64_shuffle/',
     'The path for ppdb outputs.')
 
-flags.DEFINE_integer('num_shard', 128, 'number of shared of outputs.')
+flags.DEFINE_integer('num_shard', 512, 'number of shared of outputs.')
 
 FLAGS = flags.FLAGS
 
@@ -23,7 +26,7 @@ if __name__ == '__main__':
 
     rng = random.Random(1234)
     for shard_idx in range(FLAGS.num_shard):
-        output_path = os.path.join(FLAGS.output_path, 'shard_%s.example' % shard_idx)
+        output_path = os.path.join(FLAGS.output_path, 'shard_%s.example' %  shard_idx)
         if os.path.exists(output_path):
             continue
 
@@ -32,7 +35,6 @@ if __name__ == '__main__':
         examples = []
 
         # Process cur files
-        cnt = 0
         for file in os.listdir(FLAGS.example_path):
             if hash(file) % FLAGS.num_shard != shard_idx:
                 continue
@@ -43,10 +45,8 @@ if __name__ == '__main__':
 
             rng.shuffle(tmp_examples)
             examples.extend(tmp_examples)
-            cnt += 1
 
         rng.shuffle(examples)
         for example in examples:
             writer.write(example)
         writer.close()
-        print('Done with file %s of size %s' % (output_path, cnt))

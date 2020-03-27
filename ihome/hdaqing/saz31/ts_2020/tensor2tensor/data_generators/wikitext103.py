@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data generators for wikitext-103.
 
 Wikitext-103: Long term dependency language modeling dataset
@@ -31,7 +30,7 @@ from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.data_generators import text_problems
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def _build_vocab(filename, vocab_dir, vocab_name):
@@ -161,43 +160,3 @@ class LanguagemodelWikitext103Characters(LanguagemodelWikitext103):
   @property
   def vocab_type(self):
     return text_problems.VocabType.CHARACTER
-
-
-@registry.register_problem
-class LanguagemodelWikitext103L4k(LanguagemodelWikitext103):
-  """Wikitext-103, token-level, with examples up to 4,096 tokens long."""
-
-  def generate_samples(self, data_dir, tmp_dir, dataset_split):
-    samples_by_line = super(LanguagemodelWikitext103L4k,
-                            self).generate_samples(data_dir, tmp_dir,
-                                                   dataset_split)
-
-    def _generate_samples():
-      tokens = []
-      for sample in samples_by_line:
-        sample_tokens = sample["targets"].split()
-        if len(tokens) + len(sample_tokens) < self.sequence_length:
-          tokens.extend(sample_tokens)
-        else:
-          yield {"targets": " ".join(tokens)}
-          tokens = sample_tokens
-
-    return _generate_samples()
-
-  def max_length(self, model_hparams):
-    return model_hparams.split_to_length or self.sequence_length
-
-  @property
-  def sequence_length(self):
-    """Length of each example (in tokens)."""
-    return 4096
-
-
-@registry.register_problem
-class LanguagemodelWikitext103L16k(LanguagemodelWikitext103L4k):
-  """Wikitext-103, token-level, with examples up to 16,384 tokens long."""
-
-  @property
-  def sequence_length(self):
-    """Length of each example (in tokens)."""
-    return 16384

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Simple Generative Adversarial Model with two linear layers.
 
 Example of how to create a GAN in T2T.
@@ -27,7 +26,7 @@ from tensor2tensor.layers import common_layers
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def lrelu(input_, leak=0.2, name="lrelu"):
@@ -199,7 +198,7 @@ class SlicedGan(AbstractGAN):
 def sliced_gan():
   """Basic parameters for a vanilla_gan."""
   hparams = common_hparams.basic_params1()
-  hparams.optimizer = "adam"
+  hparams.optimizer = "Adam"
   hparams.learning_rate_constant = 0.0002
   hparams.learning_rate_warmup_steps = 500
   hparams.learning_rate_schedule = "constant * linear_warmup"

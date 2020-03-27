@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """CIFAR."""
 
 from __future__ import absolute_import
@@ -29,12 +28,10 @@ from six.moves import cPickle
 from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import image_utils
 from tensor2tensor.data_generators import mnist
-from tensor2tensor.data_generators import problem
-from tensor2tensor.layers import modalities
 from tensor2tensor.utils import metrics
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # URLs and filenames for CIFAR data.
 _CIFAR10_URL = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
@@ -181,27 +178,6 @@ class ImageCifar10PlainGen(ImageCifar10Plain):
 
 
 @registry.register_problem
-class ImageCifar10PlainGenFlat(ImageCifar10PlainGen):
-  """CIFAR-10 for image generation as a flat array of 64*64*3=12228 elements."""
-
-  def preprocess_example(self, example, mode, unused_hparams):
-    example["inputs"].set_shape([_CIFAR10_IMAGE_SIZE, _CIFAR10_IMAGE_SIZE, 3])
-    example["inputs"] = tf.to_int64(example["inputs"])
-    example["inputs"] = tf.reshape(example["inputs"], (-1,))
-
-    del example["targets"]  # Ensure unconditional generation
-
-    return example
-
-  def hparams(self, defaults, model_hparams):
-    super(ImageCifar10PlainGenFlat, self).hparams(defaults, model_hparams)
-    # Switch to symbol modality
-    p = defaults
-    p.modality["inputs"] = modalities.ModalityType.SYMBOL_WEIGHTS_ALL
-    p.input_space_id = problem.SpaceID.GENERIC
-
-
-@registry.register_problem
 class ImageCifar10PlainRandomShift(ImageCifar10Plain):
   """CIFAR-10 32x32 for image generation with random shift data-augmentation."""
 
@@ -262,10 +238,8 @@ class Img2imgCifar10(ImageCifar10):
 
   def hparams(self, defaults, unused_model_hparams):
     p = defaults
-    p.modality = {"inputs": modalities.ModalityType.IDENTITY,
-                  "targets": modalities.ModalityType.IDENTITY}
-    p.vocab_size = {"inputs": 256,
-                    "targets": 256}
+    p.input_modality = {"inputs": ("image:identity", 256)}
+    p.target_modality = ("image:identity", 256)
     p.batch_size_multiplier = 256
     p.input_space_id = 1
     p.target_space_id = 1
@@ -472,10 +446,8 @@ class Img2imgCifar100(ImageCifar100):
 
   def hparams(self, defaults, unused_model_hparams):
     p = defaults
-    p.modality = {"inputs": modalities.ModalityType.IDENTITY,
-                  "targets": modalities.ModalityType.IDENTITY}
-    p.vocab_size = {"inputs": 256,
-                    "targets": 256}
+    p.input_modality = {"inputs": ("image:identity", 256)}
+    p.target_modality = ("image:identity", 256)
     p.batch_size_multiplier = 256
     p.max_expected_batch_size_per_shard = 4
     p.input_space_id = 1

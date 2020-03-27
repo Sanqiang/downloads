@@ -21,12 +21,12 @@ from __future__ import print_function
 
 import re
 import six
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # pylint: disable=g-direct-tensorflow-import
-# from tensorflow.python.ops import array_ops
-# from tensorflow.python.ops import linalg_ops
-# from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import linalg_ops
+from tensorflow.python.ops import math_ops
 # pylint: enable=g-direct-tensorflow-import
 
 
@@ -107,10 +107,10 @@ class LAMBOptimizer(tf.train.Optimizer):
 
       ratio = 1.0
       if self._do_layer_adaptation(param_name):
-        w_norm = tf.norm(param, ord=2)
-        g_norm = tf.norm(update, ord=2)
-        ratio = tf.where(tf.greater(w_norm, 0), tf.where(
-            tf.greater(g_norm, 0), (w_norm / g_norm), 1.0), 1.0)
+        w_norm = linalg_ops.norm(param, ord=2)
+        g_norm = linalg_ops.norm(update, ord=2)
+        ratio = array_ops.where(math_ops.greater(w_norm, 0), array_ops.where(
+            math_ops.greater(g_norm, 0), (w_norm / g_norm), 1.0), 1.0)
 
       update_with_lr = ratio * self.learning_rate * update
 

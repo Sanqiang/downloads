@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for tensor2tensor.data_generators.audio."""
 
 from __future__ import absolute_import
@@ -23,7 +22,7 @@ import io
 import os
 from tensor2tensor.data_generators import audio
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class AudioTest(tf.test.TestCase):

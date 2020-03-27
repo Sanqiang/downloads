@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 r"""Adversarially attack a model.
 
 This script adversarially attacks a model and evaluates accuracy at various
@@ -48,7 +47,7 @@ from tensor2tensor.utils import t2t_model
 from tensor2tensor.utils import trainer_lib
 from tensor2tensor.utils import usr_dir
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 flags = tf.flags
 FLAGS = flags.FLAGS
@@ -73,7 +72,7 @@ def create_attack_params():
 
 
 def create_attack(attack):
-  return registry.attack(attack)
+  return registry.attacks(attack)
 
 
 def create_surrogate_hparams():
@@ -99,7 +98,6 @@ def create_surrogate_run_config(hp):
       hp.daisy_chain_variables and hp.activation_dtype == "float32" and
       hp.weight_dtype == "float32")
   return trainer_lib.create_run_config(
-      model_name=FLAGS.model,
       model_dir=os.path.expanduser(FLAGS.surrogate_output_dir),
       master=FLAGS.master,
       iterations_per_loop=FLAGS.iterations_per_loop,
@@ -111,6 +109,7 @@ def create_surrogate_run_config(hp):
       keep_checkpoint_every_n_hours=FLAGS.keep_checkpoint_every_n_hours,
       num_gpus=FLAGS.worker_gpu,
       gpu_order=FLAGS.gpu_order,
+      shard_to_cpu=FLAGS.locally_shard_to_cpu,
       num_async_replicas=FLAGS.worker_replicas,
       gpu_mem_fraction=FLAGS.worker_gpu_memory_fraction,
       enable_graph_rewriter=FLAGS.enable_graph_rewriter,
@@ -193,14 +192,14 @@ def main(argv):
 
   if FLAGS.surrogate_attack:
     sur_model_fn = t2t_model.T2TModel.make_estimator_model_fn(
-        FLAGS.surrogate_model, sur_hparams, use_tpu=FLAGS.use_tpu)
+        FLAGS.surrogate_model, sur_hparams)
     sur_ch_model = adv_attack_utils.T2TAttackModel(
         sur_model_fn, features, params, sur_config, scope="surrogate")
     # Dummy call to construct graph
     sur_ch_model.get_probs(inputs)
 
     checkpoint_path = os.path.expanduser(FLAGS.surrogate_output_dir)
-    tf.train.init_from_checkpoint(
+    tf.contrib.framework.init_from_checkpoint(
         tf.train.latest_checkpoint(checkpoint_path), {"/": "surrogate/"})
     sess.run(tf.global_variables_initializer())
 

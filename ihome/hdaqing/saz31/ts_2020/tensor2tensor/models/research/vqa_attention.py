@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Attention models for VQA."""
 
 from __future__ import absolute_import
@@ -27,8 +26,7 @@ from tensor2tensor.utils import registry
 # from tensor2tensor.utils import restore_hook
 from tensor2tensor.utils import t2t_model
 
-import tensorflow.compat.v1 as tf
-from tensorflow.contrib import rnn as contrib_rnn
+import tensorflow as tf
 
 # pylint: disable=unused-import
 from tensorflow.contrib.layers.python.layers import utils
@@ -52,13 +50,11 @@ class VqaAttentionBaseline(t2t_model.T2TModel):
 
   def body(self, features):
     hp = self.hparams
-    model_fn = resnet_v1_152
-    if hp.image_model_fn != "resnet_v1_152":
-      model_fn = eval(hp.image_model_fn)  # pylint: disable=eval-used
+    # pylint: disable=eval-used
     if hp.image_input_type == "image":
       image_feat = vqa_layers.image_embedding(
           features["inputs"],
-          model_fn=model_fn,
+          model_fn=eval(hp.image_model_fn),
           trainable=hp.train_resnet,
           is_training=hp.mode == tf.estimator.ModeKeys.TRAIN)
     else:
@@ -237,10 +233,10 @@ def image_encoder(image_feat,
 
 def _get_rnn_cell(hparams):
   if hparams.rnn_type == "lstm":
-    rnn_cell = tf.nn.rnn_cell.BasicLSTMCell
+    rnn_cell = tf.contrib.rnn.BasicLSTMCell
   elif hparams.rnn_type == "lstm_layernorm":
-    rnn_cell = contrib_rnn.LayerNormBasicLSTMCell
-  return tf.nn.rnn_cell.DropoutWrapper(
+    rnn_cell = tf.contrib.rnn.LayerNormBasicLSTMCell
+  return tf.contrib.rnn.DropoutWrapper(
       rnn_cell(hparams.hidden_size),
       output_keep_prob=1.0-hparams.dropout)
 
@@ -272,7 +268,7 @@ def question_encoder(question, hparams, name="encoder"):
 
     # rnn_layers = [_get_rnn_cell(hparams)
     #               for _ in range(hparams.num_rnn_layers)]
-    # rnn_multi_cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
+    # rnn_multi_cell = tf.contrib.rnn.MultiRNNCell(rnn_layers)
     rnn_cell = _get_rnn_cell(hparams)
     # outputs, _ = tf.nn.dynamic_rnn(
     #     rnn_cell, question, length, dtype=tf.float32)
@@ -338,7 +334,7 @@ def vqa_attention_base():
   hparams = common_hparams.basic_params1()
   hparams.batch_size = 128
   hparams.use_fixed_batch_size = True,
-  hparams.optimizer = "adam"
+  hparams.optimizer = "Adam"
   hparams.optimizer_adam_beta1 = 0.9
   hparams.optimizer_adam_beta2 = 0.999
   hparams.optimizer_adam_epsilon = 1e-8

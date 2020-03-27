@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Reversible Residual Transformer."""
 
 from __future__ import absolute_import
@@ -21,10 +20,9 @@ from __future__ import print_function
 from tensor2tensor.layers import common_attention
 from tensor2tensor.layers import common_layers
 from tensor2tensor.models import transformer
-from tensor2tensor.utils import contrib
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 @registry.register_model
@@ -121,7 +119,7 @@ def transformer_revnet_encoder(encoder_input,
   x1, x2 = tf.split(encoder_input, 2, axis=-1)
 
   with tf.variable_scope(name):
-    y1, y2 = contrib.layers().rev_block(
+    y1, y2 = tf.contrib.layers.rev_block(
         x1,
         x2,
         f,
@@ -199,7 +197,7 @@ def transformer_revnet_decoder(decoder_input,
   x1, x2 = tf.split(decoder_input, 2, axis=-1)
 
   with tf.variable_scope(name):
-    y1, y2 = contrib.layers().rev_block(
+    y1, y2 = tf.contrib.layers.rev_block(
         x1,
         x2,
         f,

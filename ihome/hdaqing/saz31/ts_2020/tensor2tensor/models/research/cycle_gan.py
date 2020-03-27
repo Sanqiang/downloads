@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Cycle GAN."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from tensor2tensor.layers import common_layers
-from tensor2tensor.layers import modalities
 from tensor2tensor.models.research import transformer_vae
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def discriminator(x, compress, hparams, name, reuse=None):
@@ -57,7 +55,7 @@ def lossfn(real_input, fake_input, compress, hparams, lsgan, name):
       loss = (dloss + gloss)/2
     else:  # cross_entropy
       dloss = -tf.reduce_mean(
-          tf.log(d1 + eps)) - tf.reduce_mean(tf.log1p(eps - d2))
+          tf.log(d1 + eps)) - tf.reduce_mean(tf.log(1 - d2 + eps))
       gloss = -tf.reduce_mean(tf.log(d2 + eps))
       loss = (dloss + gloss)/2
     return loss
@@ -127,13 +125,8 @@ def cycle_gan_small():
   """Set of hyperparameters."""
   hparams = transformer_vae.transformer_ae_small()
   hparams.batch_size = 2048
-  hparams.bottom = {
-      "inputs": modalities.identity_bottom,
-      "targets": modalities.identity_bottom,
-  }
-  hparams.top = {
-      "targets": modalities.identity_top,
-  }
+  hparams.input_modalities = "inputs:symbol:identity"
+  hparams.target_modality = "symbol:identity"
   hparams.weight_decay = 3.0
   hparams.learning_rate = 0.05
   hparams.kl_warmup_steps = 5000

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """A simple invertible tokenizer.
 
 Converts from a unicode string to a list of tokens
@@ -49,8 +48,7 @@ import sys
 import unicodedata
 import six
 from six.moves import range  # pylint: disable=redefined-builtin
-from tensor2tensor.utils import mlperf_log
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 # Conversion between Unicode and UTF-8, if required (on Python2)
 _native_to_unicode = (lambda s: s.decode("utf-8")) if six.PY2 else (lambda s: s)
@@ -61,6 +59,8 @@ _ALPHANUMERIC_CHAR_SET = set(
     six.unichr(i) for i in range(sys.maxunicode)
     if (unicodedata.category(six.unichr(i)).startswith("L") or
         unicodedata.category(six.unichr(i)).startswith("N")))
+_ALPHANUMERIC_CHAR_SET.add('#')
+_ALPHANUMERIC_CHAR_SET.add('-')
 
 
 def encode(text):
@@ -166,8 +166,6 @@ def corpus_token_counts(
       split_on_newlines=split_on_newlines):
     counts.update(encode(_native_to_unicode(doc)))
 
-  mlperf_log.transformer_print(
-      key=mlperf_log.PREPROC_VOCAB_SIZE, value=len(counts))
   return counts
 
 

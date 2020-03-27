@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for CelebA."""
 
 from __future__ import absolute_import
@@ -21,9 +20,8 @@ from __future__ import print_function
 
 from absl.testing import parameterized
 from tensor2tensor.data_generators import celeba
-from tensor2tensor.utils import hparam
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class CelebaTest(parameterized.TestCase, tf.test.TestCase):
@@ -35,7 +33,7 @@ class CelebaTest(parameterized.TestCase, tf.test.TestCase):
   def testCelebaMultiResolutionPreprocessExample(self, resize_method):
     example = {"inputs": tf.random_uniform([218, 178, 3], minval=-1.)}
     mode = tf.estimator.ModeKeys.TRAIN
-    hparams = hparam.HParams(resolutions=[8, 16, 32])
+    hparams = tf.contrib.training.HParams(resolutions=[8, 16, 32])
     if resize_method is not None:
       hparams.resize_method = resize_method
 

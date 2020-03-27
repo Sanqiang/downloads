@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for tensor2tensor.data_generators.style_transfer."""
 
 from __future__ import absolute_import
@@ -21,7 +20,7 @@ from __future__ import print_function
 
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import style_transfer
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class StyleTransferProblemShakespeareTest(tf.test.TestCase):

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Module for postprocessing and displaying transformer attentions.
 
 This module is designed to be called from an ipython notebook.
@@ -86,7 +85,7 @@ def _get_attention(inp_text, out_text, enc_atts, dec_atts, encdec_atts):
     dec_atts: numpy array, decoder self-attentions
         [num_layers, batch_size, num_heads, dec_length, dec_length]
     encdec_atts: numpy array, encoder-decoder attentions
-        [num_layers, batch_size, num_heads, dec_length, enc_length]
+        [num_layers, batch_size, num_heads, enc_length, dec_length]
 
   Returns:
     Dictionary of attention representations with the structure:
@@ -135,7 +134,11 @@ def _get_attention(inp_text, out_text, enc_atts, dec_atts, encdec_atts):
 
   def get_attentions(get_attention_fn):
     num_layers = len(enc_atts)
-    return [get_attention_fn(i) for i in range(num_layers)]
+    attentions = []
+    for i in range(num_layers):
+      attentions.append(get_attention_fn(i))
+
+    return attentions
 
   attentions = {
       'all': {

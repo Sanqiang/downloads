@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Tensor2Tensor Authors.
+# Copyright 2018 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Batch of environments inside the TensorFlow graph."""
 
 # The code was based on Danijar Hafner's code from tf.agents:
@@ -22,9 +21,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import gym
+from tensor2tensor.rl.envs import utils
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class InGraphBatchEnv(object):
@@ -35,8 +34,16 @@ class InGraphBatchEnv(object):
     self.observ_space = observ_space
     self.action_space = action_space
 
-  def __str__(self):
-    return "InGraphEnv(%s)" % str(self._batch_env)
+  def __getattr__(self, name):
+    """Forward unimplemented attributes to one of the original environments.
+
+    Args:
+      name: Attribute that was accessed.
+
+    Returns:
+      Value behind the attribute name in one of the original environments.
+    """
+    return getattr(self._batch_env, name)
 
   def __len__(self):
     """Number of combined environments."""
@@ -73,29 +80,21 @@ class InGraphBatchEnv(object):
         lambda: self._reset_non_empty(indices),
         lambda: tf.cast(0, self.observ_dtype))
 
-  @staticmethod
-  def _get_tf_dtype(space):
-    if isinstance(space, gym.spaces.Discrete):
-      return tf.int32
-    if isinstance(space, gym.spaces.Box):
-      return tf.as_dtype(space.dtype)
-    raise NotImplementedError()
-
   @property
   def observ_dtype(self):
-    return self._get_tf_dtype(self.observ_space)
+    return utils.parse_dtype(self.observ_space)
 
   @property
   def observ_shape(self):
-    return self.observ_space.shape
+    return utils.parse_shape(self.observ_space)
 
   @property
   def action_dtype(self):
-    return self._get_tf_dtype(self.action_space)
+    return utils.parse_dtype(self.action_space)
 
   @property
   def action_shape(self):
-    return self.action_space.shape
+    return utils.parse_shape(self.action_space)
 
   @property
   def observ(self):
