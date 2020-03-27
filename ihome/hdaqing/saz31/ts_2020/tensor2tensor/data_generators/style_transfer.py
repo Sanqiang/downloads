@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Base classes for text-based language style transfer problems.
 
 * StyleTransferProblem: abstract class for style transfer problems.
@@ -31,16 +32,12 @@ from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import text_problems
 from tensor2tensor.utils import registry
 
-import tensorflow.compat.v1 as tf
 
-logger = tf.logging
+# Modern-Shakespeare corpus is consisted of:
+# - 18,395 parallel sentences for training (train set),
+# - 1,218 parallel sentences for evaluation (dev set),
+# - 1,462 parallel sentence for testing (test set).
 
-"""
-Modern-Shakespeare corpus is consisted of:
-- 18,395 parallel sentences for training (train set),
-- 1,218 parallel sentences for evaluation (dev set),
-- 1,462 parallel sentence for testing (test set).
-"""
 
 _SHAKESPEARE_MODERN_TRAIN_DATASET = [[
     "https://github.com/tlatkowski/st/raw/master/shakespeare.train.tgz",

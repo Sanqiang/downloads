@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Models for gene expression from DNA."""
 from __future__ import absolute_import
 from __future__ import division
@@ -20,6 +21,7 @@ from six.moves import range  # pylint: disable=redefined-builtin
 
 from tensor2tensor.layers import common_hparams
 from tensor2tensor.layers import common_layers
+from tensor2tensor.utils import contrib
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
@@ -117,7 +119,7 @@ def fc_layer(x, num_out, dropout_rate, name="fc"):
   with tf.variable_scope(name):
     out = x
     out = tf.layers.dense(out, num_out)
-    out = tf.contrib.layers.layer_norm(out)
+    out = contrib.layers().layer_norm(out)
     out = tf.nn.relu(out)
     out = tf.layers.dropout(out, dropout_rate)
     return out

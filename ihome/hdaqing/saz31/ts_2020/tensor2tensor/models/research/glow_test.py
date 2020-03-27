@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Lint as: python2, python3
 """Tests for tensor2tensor.models.research.glow_model."""
 
 from __future__ import absolute_import
@@ -21,6 +23,7 @@ from __future__ import print_function
 import os
 import tempfile
 import numpy as np
+from six.moves import range
 from tensor2tensor import problems
 from tensor2tensor.data_generators import cifar  # pylint: disable=unused-import
 from tensor2tensor.models.research import glow
@@ -43,8 +46,14 @@ class GlowModelTest(tf.test.TestCase):
   def test_glow(self):
     with tf.Graph().as_default():
       hparams = glow.glow_hparams()
-      model = glow.Glow(hparams, tf.estimator.ModeKeys.TRAIN)
+      hparams.depth = 15
+      hparams.n_levels = 2
+      hparams.init_batch_size = 256
+      hparams.batch_size = 1
+      hparams.data_dir = ''
       cifar_problem = problems.problem('image_cifar10_plain_random_shift')
+      hparams.problem = cifar_problem
+      model = glow.Glow(hparams, tf.estimator.ModeKeys.TRAIN)
       train_dataset = cifar_problem.dataset(MODES.TRAIN)
       one_shot = train_dataset.make_one_shot_iterator()
       x_batch, y_batch = self.batch(one_shot)
@@ -53,34 +62,44 @@ class GlowModelTest(tf.test.TestCase):
       objective = obj_dict['training']
       with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+
+        # Run initialization.
+        init_op = tf.get_collection('glow_init_op')
+        sess.run(init_op)
+
+        # Run forward pass.
         obj_np = sess.run(objective)
         mean_obj = np.mean(obj_np)
 
         # Check that one forward-propagation does not NaN, i.e
         # initialization etc works as expected.
-        is_undefined = np.isnan(mean_obj) or np.isinf(mean_obj)
-        self.assertTrue(not is_undefined)
+        self.assertTrue(mean_obj > 0 and mean_obj < 10.0)
 
   def test_glow_inference(self):
     hparams = glow.glow_hparams()
     hparams.depth = 15
     hparams.n_levels = 2
+    hparams.data_dir = ''
     curr_dir = tempfile.mkdtemp()
 
     # Training pipeline
     with tf.Graph().as_default():
-      model = glow.Glow(hparams, tf.estimator.ModeKeys.TRAIN)
       cifar_problem = problems.problem('image_cifar10_plain_random_shift')
+      hparams.problem = cifar_problem
+      model = glow.Glow(hparams, tf.estimator.ModeKeys.TRAIN)
       train_dataset = cifar_problem.dataset(MODES.TRAIN)
       one_shot = train_dataset.make_one_shot_iterator()
       x_batch, y_batch = self.batch(one_shot)
       features = {'inputs': x_batch, 'targets': y_batch}
       model_path = os.path.join(curr_dir, 'model')
-
       model(features)
+
       with tf.Session() as session:
         saver = tf.train.Saver()
         session.run(tf.global_variables_initializer())
+
+        init_op = tf.get_collection('glow_init_op')
+        session.run(init_op)
         z = session.run([model.z])
         mean_z = np.mean(z)
         is_undefined = np.isnan(mean_z) or np.isinf(mean_z)
@@ -89,8 +108,9 @@ class GlowModelTest(tf.test.TestCase):
 
     # Inference pipeline
     with tf.Graph().as_default():
-      model = glow.Glow(hparams, tf.estimator.ModeKeys.PREDICT)
       cifar_problem = problems.problem('image_cifar10_plain_random_shift')
+      hparams.problem = cifar_problem
+      model = glow.Glow(hparams, tf.estimator.ModeKeys.PREDICT)
       test_dataset = cifar_problem.dataset(MODES.EVAL)
       one_shot = test_dataset.make_one_shot_iterator()
       x_batch, y_batch = self.batch(one_shot)

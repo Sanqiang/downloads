@@ -10,8 +10,6 @@ from models.ts_model.graph import TsGraph
 from models.ts_model.graph2 import TsGraph as TsGraph2
 from models.utils import ckpt_utils, sari_utils, mteval_bleu, hook_utils, restore_utils
 from nltk.translate.bleu_score import sentence_bleu
-from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
-from tensorflow.contrib import tpu as contrib_tpu
 from models.utils.lamb_optimizer import LAMBOptimizer
 
 
@@ -30,7 +28,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "infer",
+    "mode", "train",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -355,9 +353,13 @@ def model_fn_builder(data, init_ckpt_path=None):
             else:
                 optimizer = LAMBOptimizer(learning_rate)
             if FLAGS.use_tpu:
-                optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+                optimizer = tf.tpu.CrossShardOptimizer(optimizer)
 
-            train_op = tf.contrib.training.create_train_op(loss, optimizer)
+            # train_op = tf.training.create_train_op(loss, optimizer)
+            tvars = tf.trainable_variables()
+            grads = tf.gradients(loss, tvars)
+            train_op = optimizer.apply_gradients(
+                zip(grads, tvars), global_step=global_step)
             new_global_step = global_step + 1
             train_op = tf.group(train_op, [global_step.assign(new_global_step)])
 
@@ -371,19 +373,19 @@ def model_fn_builder(data, init_ckpt_path=None):
                     for name in scalars:
                         scalars[name] = scalars[name][0]
 
-                    with tf.contrib.summary.create_file_writer(
+                    with tf.summary.create_file_writer(
                             logdir=os.path.join(FLAGS.exp_dir, FLAGS.name, 'log'), max_queue=1000).as_default():
-                        with tf.contrib.summary.always_record_summaries():
+                        with tf.summary.always_record_summaries():
                             for name, value in scalars.items():
                                 if name == "global_step":
                                     continue
-                                tf.contrib.summary.scalar(name, value, step=scalars["global_step"])
-                    return tf.contrib.summary.all_summary_ops()
+                                tf.summary.scalar(name, value, step=scalars["global_step"])
+                    return tf.summary.summary.all_summary_ops()
 
                 host_call = (
                     host_call_fn, _dicts_to_list([scalars_summaries], scalars_summaries.keys()))
 
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+            output_spec = tf.estimator.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=loss,
                 train_op=train_op,
@@ -391,7 +393,7 @@ def model_fn_builder(data, init_ckpt_path=None):
                 host_call=host_call
             )
         else:
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+            output_spec = tf.estimator.tpu.TPUEstimatorSpec(
                 mode=mode,
                 predictions={
                     'gen_trg_ids': outputs['gen_trg_ids'],
@@ -795,12 +797,12 @@ def main(_):
         else:
             tpu_address = 'grpc://' + os.environ['COLAB_TPU_ADDR']
 
-        tpu_cluster_resolver = contrib_cluster_resolver.TPUClusterResolver(
+        tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
             tpu_address)
-        tpu_config = contrib_tpu.TPUConfig(
+        tpu_config = tf.estimator.tpu.TPUConfig(
             iterations_per_loop=1000,
             num_shards=8)
-    run_config = tf.contrib.tpu.RunConfig(
+    run_config = tf.estimator.tpu.RunConfig(
             cluster=tpu_cluster_resolver,
             model_dir=log_dir,
             save_checkpoints_secs=1500,
@@ -811,7 +813,7 @@ def main(_):
     model_fn = model_fn_builder(
         data=data,
         init_ckpt_path=FLAGS.init_ckpt_path)
-    estimator = tf.contrib.tpu.TPUEstimator(
+    estimator = tf.estimator.tpu.TPUEstimator(
         model_fn=model_fn,
         config=run_config,
         train_batch_size=FLAGS.train_batch_size,

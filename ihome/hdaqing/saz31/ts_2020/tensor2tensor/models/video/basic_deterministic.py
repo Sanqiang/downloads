@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,46 +12,93 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Basic models for testing simple tasks."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import six
-
 from tensor2tensor.layers import common_attention
 from tensor2tensor.layers import common_layers
+from tensor2tensor.layers import common_video
+from tensor2tensor.layers import discretization
+from tensor2tensor.models.video import base
 from tensor2tensor.models.video import basic_deterministic_params  # pylint: disable=unused-import
 from tensor2tensor.utils import registry
-from tensor2tensor.utils import t2t_model
 
 import tensorflow.compat.v1 as tf
 
 
-tfl = tf.layers
-tfcl = tf.contrib.layers
-
-
 @registry.register_model
-class NextFrameBasicDeterministic(t2t_model.T2TModel):
+class NextFrameBasicDeterministic(base.NextFrameBase):
   """Basic next-frame model, may take actions and predict rewards too."""
 
-  def inject_latent(self, layer, features, filters):
-    """Do nothing for deterministic model."""
-    del features, filters
+  @property
+  def is_recurrent_model(self):
+    return False
+
+  def inject_latent(self, layer, inputs, target, action):
+    del inputs, target, action
     return layer, 0.0
 
-  def body_single(self, features):
+  def middle_network(self, layer, internal_states):
+    # Run a stack of convolutions.
+    activation_fn = common_layers.belu
+    if self.hparams.activation_fn == "relu":
+      activation_fn = tf.nn.relu
+    x = layer
+    kernel1 = (3, 3)
+    filters = common_layers.shape_list(x)[-1]
+    for i in range(self.hparams.num_hidden_layers):
+      with tf.variable_scope("layer%d" % i):
+        y = tf.nn.dropout(x, 1.0 - self.hparams.residual_dropout)
+        y = tf.layers.conv2d(y, filters, kernel1, activation=activation_fn,
+                             strides=(1, 1), padding="SAME")
+        if i == 0:
+          x = y
+        else:
+          x = common_layers.layer_norm(x + y)
+    return x, internal_states
+
+  def update_internal_states_early(self, internal_states, frames):
+    """Update the internal states early in the network if requested."""
+    del frames
+    return internal_states
+
+  def next_frame(self, frames, actions, rewards, target_frame,
+                 internal_states, video_extra):
+    del rewards, video_extra
+
     hparams = self.hparams
     filters = hparams.hidden_size
-    kernel1, kernel2 = (3, 3), (4, 4)
+    kernel2 = (4, 4)
+    action = actions[-1]
+    activation_fn = common_layers.belu
+    if self.hparams.activation_fn == "relu":
+      activation_fn = tf.nn.relu
 
-    # Embed the inputs.
-    inputs_shape = common_layers.shape_list(features["inputs"])
+    # Normalize frames.
+    frames = [common_layers.standardize_images(f) for f in frames]
+
+    # Stack the inputs.
+    if internal_states is not None and hparams.concat_internal_states:
+      # Use the first part of the first internal state if asked to concatenate.
+      batch_size = common_layers.shape_list(frames[0])[0]
+      internal_state = internal_states[0][0][:batch_size, :, :, :]
+      stacked_frames = tf.concat(frames + [internal_state], axis=-1)
+    else:
+      stacked_frames = tf.concat(frames, axis=-1)
+    inputs_shape = common_layers.shape_list(stacked_frames)
+
+    # Update internal states early if requested.
+    if hparams.concat_internal_states:
+      internal_states = self.update_internal_states_early(
+          internal_states, frames)
+
     # Using non-zero bias initializer below for edge cases of uniform inputs.
     x = tf.layers.dense(
-        features["inputs"], filters, name="inputs_embed",
+        stacked_frames, filters, name="inputs_embed",
         bias_initializer=tf.random_normal_initializer(stddev=0.01))
     x = common_attention.add_timing_signal_nd(x)
 
@@ -60,47 +107,48 @@ class NextFrameBasicDeterministic(t2t_model.T2TModel):
     for i in range(hparams.num_compress_steps):
       with tf.variable_scope("downstride%d" % i):
         layer_inputs.append(x)
+        x = tf.nn.dropout(x, 1.0 - self.hparams.dropout)
         x = common_layers.make_even_size(x)
         if i < hparams.filter_double_steps:
           filters *= 2
         x = common_attention.add_timing_signal_nd(x)
-        x = tf.layers.conv2d(x, filters, kernel2, activation=common_layers.belu,
+        x = tf.layers.conv2d(x, filters, kernel2, activation=activation_fn,
                              strides=(2, 2), padding="SAME")
         x = common_layers.layer_norm(x)
 
+    if self.has_actions:
+      with tf.variable_scope("policy"):
+        x_flat = tf.layers.flatten(x)
+        policy_pred = tf.layers.dense(x_flat, self.hparams.problem.num_actions)
+        value_pred = tf.layers.dense(x_flat, 1)
+        value_pred = tf.squeeze(value_pred, axis=-1)
+    else:
+      policy_pred, value_pred = None, None
+
     # Add embedded action if present.
-    if "input_action" in features:
-      action = tf.reshape(features["input_action"][:, -1, :],
-                          [-1, 1, 1, hparams.hidden_size])
-      action_mask = tf.layers.dense(action, filters, name="action_mask")
-      zeros_mask = tf.zeros(common_layers.shape_list(x)[:-1] + [filters],
-                            dtype=tf.float32)
-      if hparams.concatenate_actions:
-        x = tf.concat([x, action_mask + zeros_mask], axis=-1)
-      else:
-        x *= action_mask + zeros_mask
+    if self.has_actions:
+      x = common_video.inject_additional_input(
+          x, action, "action_enc", hparams.action_injection)
 
-    x, extra_loss = self.inject_latent(x, features, filters)
+    # Inject latent if present. Only for stochastic models.
+    norm_target_frame = common_layers.standardize_images(target_frame)
+    x, extra_loss = self.inject_latent(x, frames, norm_target_frame, action)
 
-    # Run a stack of convolutions.
-    for i in range(hparams.num_hidden_layers):
-      with tf.variable_scope("layer%d" % i):
-        y = tf.nn.dropout(x, 1.0 - hparams.dropout)
-        y = tf.layers.conv2d(y, filters, kernel1, activation=common_layers.belu,
-                             strides=(1, 1), padding="SAME")
-        if i == 0:
-          x = y
-        else:
-          x = common_layers.layer_norm(x + y)
+    x_mid = tf.reduce_mean(x, axis=[1, 2], keepdims=True)
+    x, internal_states = self.middle_network(x, internal_states)
 
     # Up-convolve.
     layer_inputs = list(reversed(layer_inputs))
     for i in range(hparams.num_compress_steps):
       with tf.variable_scope("upstride%d" % i):
+        x = tf.nn.dropout(x, 1.0 - self.hparams.dropout)
+        if self.has_actions:
+          x = common_video.inject_additional_input(
+              x, action, "action_enc", hparams.action_injection)
         if i >= hparams.num_compress_steps - hparams.filter_double_steps:
           filters //= 2
         x = tf.layers.conv2d_transpose(
-            x, filters, kernel2, activation=common_layers.belu,
+            x, filters, kernel2, activation=activation_fn,
             strides=(2, 2), padding="SAME")
         y = layer_inputs[i]
         shape = common_layers.shape_list(y)
@@ -110,136 +158,76 @@ class NextFrameBasicDeterministic(t2t_model.T2TModel):
 
     # Cut down to original size.
     x = x[:, :inputs_shape[1], :inputs_shape[2], :]
-    x = tf.layers.dense(x, hparams.problem.num_channels * 256, name="logits")
-
-    # Reward prediction if needed.
-    if "target_reward" not in features:
-      return x
-    reward_pred = tf.expand_dims(  # Add a fake channels dim.
-        tf.reduce_mean(x, axis=[1, 2], keepdims=True), axis=3)
-    return {"targets": x, "target_reward": reward_pred}, extra_loss
-
-  def body(self, features):
-    hparams = self.hparams
-    is_predicting = hparams.mode == tf.estimator.ModeKeys.PREDICT
-    if hparams.video_num_target_frames < 2:
-      res = self.body_single(features)
-      return res
-
-    # TODO(lukaszkaiser): the split axes and the argmax below heavily depend on
-    # using the default (a bit strange) video modality - we should change that.
-
-    # Split inputs and targets into lists.
-    input_frames = list(tf.split(
-        features["inputs"], hparams.video_num_input_frames, axis=-1))
-    target_frames = list(tf.split(
-        features["targets"], hparams.video_num_target_frames, axis=-1))
-    all_frames = input_frames + target_frames
-    if "input_action" in features:
-      input_actions = list(tf.split(
-          features["input_action"], hparams.video_num_input_frames, axis=1))
-      target_actions = list(tf.split(
-          features["target_action"], hparams.video_num_target_frames, axis=1))
-      all_actions = input_actions + target_actions
-
-    # Run a number of steps.
-    res_frames = []
-    if "target_reward" in features:
-      res_rewards, extra_loss = [], 0.0
-    sample_prob = common_layers.inverse_exp_decay(
-        hparams.scheduled_sampling_warmup_steps)
-    sample_prob *= hparams.scheduled_sampling_prob
-    for i in range(hparams.video_num_target_frames):
-      cur_frames = all_frames[i:i + hparams.video_num_input_frames]
-      features["inputs"] = tf.concat(cur_frames, axis=-1)
-      if "input_action" in features:
-        cur_actions = all_actions[i:i + hparams.video_num_input_frames]
-        features["input_action"] = tf.concat(cur_actions, axis=1)
-
-      # Run model.
-      with tf.variable_scope(tf.get_variable_scope(), reuse=i > 0):
-        if "target_reward" not in features:
-          res_frames.append(self.body_single(features))
+    x_fin = tf.reduce_mean(x, axis=[1, 2], keepdims=True)
+    if hparams.do_autoregressive_rnn:
+      # If enabled, we predict the target frame autoregregressively using rnns.
+      # To this end, the current prediciton is flattened into one long sequence
+      # of sub-pixels, and so is the target frame. Each sub-pixel (RGB value,
+      # from 0 to 255) is predicted with an RNN. To avoid doing as many steps
+      # as width * height * channels, we only use a number of pixels back,
+      # as many as hparams.autoregressive_rnn_lookback.
+      with tf.variable_scope("autoregressive_rnn"):
+        batch_size = common_layers.shape_list(frames[0])[0]
+        # Height, width, channels and lookback are the constants we need.
+        h, w = inputs_shape[1], inputs_shape[2]  # 105, 80 on Atari games
+        c = hparams.problem.num_channels
+        lookback = hparams.autoregressive_rnn_lookback
+        assert (h * w) % lookback == 0, "Number of pixels must divide lookback."
+        m = (h * w) // lookback  # Batch size multiplier for the RNN.
+        # These are logits that will be used as inputs to the RNN.
+        rnn_inputs = tf.layers.dense(x, c * 64, name="rnn_inputs")
+        # They are of shape [batch_size, h, w, c, 64], reshaping now.
+        rnn_inputs = tf.reshape(rnn_inputs, [batch_size * m, lookback * c, 64])
+        # Same for the target frame.
+        rnn_target = tf.reshape(target_frame, [batch_size * m, lookback * c])
+        # Construct rnn starting state: flatten rnn_inputs, apply a relu layer.
+        rnn_start_state = tf.nn.relu(tf.layers.dense(tf.nn.relu(
+            tf.layers.flatten(rnn_inputs)), 256, name="rnn_start_state"))
+        # Our RNN function API is on bits, each subpixel has 8 bits.
+        total_num_bits = lookback * c * 8
+        # We need to provide RNN targets as bits (due to the API).
+        rnn_target_bits = discretization.int_to_bit(rnn_target, 8)
+        rnn_target_bits = tf.reshape(
+            rnn_target_bits, [batch_size * m, total_num_bits])
+        if self.is_training:
+          # Run the RNN in training mode, add it's loss to the losses.
+          rnn_predict, rnn_loss = discretization.predict_bits_with_lstm(
+              rnn_start_state, 128, total_num_bits, target_bits=rnn_target_bits,
+              extra_inputs=rnn_inputs)
+          extra_loss += rnn_loss
+          # We still use non-RNN predictions too in order to guide the network.
+          x = tf.layers.dense(x, c * 256, name="logits")
+          x = tf.reshape(x, [batch_size, h, w, c, 256])
+          rnn_predict = tf.reshape(rnn_predict, [batch_size, h, w, c, 256])
+          # Mix non-RNN and RNN predictions so that after warmup the RNN is 90%.
+          x = tf.reshape(tf.nn.log_softmax(x), [batch_size, h, w, c * 256])
+          rnn_predict = tf.nn.log_softmax(rnn_predict)
+          rnn_predict = tf.reshape(rnn_predict, [batch_size, h, w, c * 256])
+          alpha = 0.9 * common_layers.inverse_lin_decay(
+              hparams.autoregressive_rnn_warmup_steps)
+          x = alpha * rnn_predict + (1.0 - alpha) * x
         else:
-          res_dict, res_extra_loss = self.body_single(features)
-          extra_loss += res_extra_loss
-          res_frames.append(res_dict["targets"])
-          res_rewards.append(res_dict["target_reward"])
-
-      # When predicting, use the generated frame.
-      orig_frame = all_frames[i + hparams.video_num_input_frames]
-      shape = common_layers.shape_list(orig_frame)
-      sampled_frame = tf.reshape(
-          res_frames[-1], shape[:-1] + [hparams.problem.num_channels, 256])
-      sampled_frame = tf.to_float(tf.argmax(sampled_frame, axis=-1))
-      sampled_frame = common_layers.standardize_images(sampled_frame)
-      if is_predicting:
-        all_frames[i + hparams.video_num_input_frames] = sampled_frame
-
-      # Scheduled sampling during training.
-      if (hparams.scheduled_sampling_prob > 0.0 and self.is_training):
-        do_sample = tf.less(tf.random_uniform([shape[0]]), sample_prob)
-        sampled_frame = tf.where(do_sample, sampled_frame, orig_frame)
-        all_frames[i + hparams.video_num_input_frames] = sampled_frame
-
-    # Concatenate results and return them.
-    frames = tf.concat(res_frames, axis=-1)
-    if "target_reward" not in features:
-      return frames
-    rewards = tf.concat(res_rewards, axis=1)
-    return {"targets": frames, "target_reward": rewards}, extra_loss
-
-  def infer(self, features, *args, **kwargs):  # pylint: disable=arguments-differ
-    """Produce predictions from the model by running it."""
-    del args, kwargs
-    # Inputs and features preparation needed to handle edge cases.
-    if not features:
-      features = {}
-    inputs_old = None
-    if "inputs" in features and len(features["inputs"].shape) < 4:
-      inputs_old = features["inputs"]
-      features["inputs"] = tf.expand_dims(features["inputs"], 2)
-
-    def logits_to_samples(logits):
-      """Get samples from logits."""
-      # If the last dimension is 1 then we're using L1/L2 loss.
-      if common_layers.shape_list(logits)[-1] == 1:
-        return tf.to_int32(tf.squeeze(logits, axis=-1))
-      # Argmax in TF doesn't handle more than 5 dimensions yet.
-      logits_shape = common_layers.shape_list(logits)
-      argmax = tf.argmax(tf.reshape(logits, [-1, logits_shape[-1]]), axis=-1)
-      return tf.reshape(argmax, logits_shape[:-1])
-
-    # Get predictions.
-    try:
-      num_channels = self.hparams.problem.num_channels
-    except AttributeError:
-      num_channels = 1
-    if "inputs" in features:
-      inputs_shape = common_layers.shape_list(features["inputs"])
-      targets_shape = [inputs_shape[0], self.hparams.video_num_target_frames,
-                       inputs_shape[2], inputs_shape[3], num_channels]
+          # In prediction mode, run the RNN without any targets.
+          bits, _ = discretization.predict_bits_with_lstm(
+              rnn_start_state, 128, total_num_bits, extra_inputs=rnn_inputs,
+              temperature=0.0)  # No sampling from this RNN, just greedy.
+          # The output is in bits, get back the predicted pixels.
+          bits = tf.reshape(bits, [batch_size * m, lookback * c, 8])
+          ints = discretization.bit_to_int(tf.maximum(bits, 0), 8)
+          ints = tf.reshape(ints, [batch_size, h, w, c])
+          x = tf.reshape(tf.one_hot(ints, 256), [batch_size, h, w, c * 256])
+    elif self.is_per_pixel_softmax:
+      x = tf.layers.dense(x, hparams.problem.num_channels * 256, name="logits")
     else:
-      tf.logging.warn("Guessing targets shape as no inputs are given.")
-      targets_shape = [self.hparams.batch_size,
-                       self.hparams.video_num_target_frames, 1, 1, num_channels]
+      x = tf.layers.dense(x, hparams.problem.num_channels, name="logits")
 
-    features["targets"] = tf.zeros(targets_shape, dtype=tf.int32)
-    if "target_reward" in self.hparams.problem_hparams.target_modality:
-      features["target_reward"] = tf.zeros(
-          [targets_shape[0], 1, 1], dtype=tf.int32)
-    logits, _ = self(features)  # pylint: disable=not-callable
-    if isinstance(logits, dict):
-      results = {}
-      for k, v in six.iteritems(logits):
-        results[k] = logits_to_samples(v)
-        results["%s_logits" % k] = v
-    else:
-      results = logits_to_samples(logits)
+    reward_pred = None
+    if self.has_rewards:
+      # Reward prediction based on middle and final logits.
+      reward_pred = tf.concat([x_mid, x_fin], axis=-1)
+      reward_pred = tf.nn.relu(tf.layers.dense(
+          reward_pred, 128, name="reward_pred"))
+      reward_pred = tf.squeeze(reward_pred, axis=1)  # Remove extra dims
+      reward_pred = tf.squeeze(reward_pred, axis=1)  # Remove extra dims
 
-    # Restore inputs to not confuse Estimator in edge cases.
-    if inputs_old is not None:
-      features["inputs"] = inputs_old
-
-    # Return results.
-    return results
+    return x, reward_pred, policy_pred, value_pred, extra_loss, internal_states

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Launch on GCP's ML Engine."""
 
 import datetime
 import os
+import pprint
 import shutil
 import subprocess as sp
 import sys
@@ -33,55 +35,10 @@ import tensorflow.compat.v1 as tf
 FLAGS = tf.flags.FLAGS
 
 CONSOLE_URL = "https://console.cloud.google.com/mlengine/jobs/"
-RUNTIME_VERSION = "1.9"
-
-
-class Gcloud(object):
-  """gcloud command strings."""
-  # Note these can be modified by set_versions
-  VM_VERSION = "tf-1-9"
-  TPU_VERSION = "1.9"
-
-  @classmethod
-  def set_versions(cls, vm, tpu):
-    cls.VM_VERSION = vm
-    cls.TPU_VERSION = tpu
-
-  @classmethod
-  def create_vm(cls):
-    create_vm_str = """
-    gcloud compute instances create {name} \
-      --machine-type=n1-standard-8 \
-      --image-family=%s \
-      --image-project=ml-images \
-      --scopes=https://www.googleapis.com/auth/cloud-platform
-    """ % cls.VM_VERSION
-    return create_vm_str
-
-  DELETE_VM = "gcloud compute instances delete {name} --quiet"
-
-  @classmethod
-  def create_tpu(cls):
-    create_tpu_str = """
-    gcloud beta compute tpus create \
-      {name} \
-      --range={tpu_ip}/29 \
-      --version=%s
-    """ % cls.TPU_VERSION
-    return create_tpu_str
-
-  DELETE_TPU = "gcloud beta compute tpus delete {name} --quiet"
-
-  LIST_TPU = "gcloud beta compute tpus list"
-  LIST_VM = "gcloud compute instances list"
-
-  SSH_LOCAL_PORT_FORWARD = "-L {local_port}:{host}:{remote_port}"
-  SSH_TUNNEL = """
-  gcloud compute ssh {name} -- -N
-  """
-
-  DEFAULT_PROJECT = "gcloud config get-value project"
-  DEFAULT_REGION = "gcloud config get-value compute/region"
+RUNTIME_VERSION = "1.14"
+LIST_VM = "gcloud compute instances list"
+DEFAULT_PROJECT = "gcloud config get-value project"
+DEFAULT_REGION = "gcloud config get-value compute/region"
 
 
 def shell_output(cmd_, **kwargs):
@@ -97,11 +54,11 @@ def format_cmd(cmd_, **kwargs):
 
 
 def default_region():
-  return shell_output(Gcloud.DEFAULT_REGION).strip()
+  return shell_output(DEFAULT_REGION).strip()
 
 
 def default_project():
-  return shell_output(Gcloud.DEFAULT_PROJECT).strip()
+  return shell_output(DEFAULT_PROJECT).strip()
 
 
 def get_setup_file(name, packages=None):
@@ -201,8 +158,15 @@ def configure_job():
     )
 
   timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-  job_name = "%s_%s_t2t_%s" % (FLAGS.model, FLAGS.problem, timestamp)
-  job_spec = {"jobId": job_name, "trainingInput": training_input}
+  job_spec = {
+      "jobId": "%s_%s_t2t_%s" % (FLAGS.model, FLAGS.problem, timestamp),
+      "labels": {
+          "model": FLAGS.model,
+          "problem": FLAGS.problem,
+          "hparams": FLAGS.hparams_set
+      },
+      "trainingInput": training_input,
+  }
   return job_spec
 
 
@@ -224,7 +188,7 @@ def _tar_and_copy(src_dir, target_dir):
   tmp_dir = tempfile.gettempdir().rstrip("/")
   src_base = os.path.basename(src_dir)
   shell_run(
-      "tar -zcf {tmp_dir}/{src_base}.tar.gz -C {src_dir} .",
+      "tar --exclude=.git -zcf {tmp_dir}/{src_base}.tar.gz -C {src_dir} .",
       src_dir=src_dir,
       src_base=src_base,
       tmp_dir=tmp_dir)
@@ -333,7 +297,6 @@ def configure_usr_dir(job_spec, usr_tar):
 
 def validate_flags():
   """Validates flags are set to acceptable values for CloudML Engine runs."""
-  assert not FLAGS.cloud_tpu
   assert not job_dir()
   assert FLAGS.output_dir.startswith("gs://")
   assert FLAGS.data_dir.startswith("gs://")
@@ -347,12 +310,15 @@ def validate_flags():
     if FLAGS.worker_gpu:
       if FLAGS.worker_gpu == 1:
         assert FLAGS.cloud_mlengine_master_type in ["standard_gpu",
-                                                    "standard_p100"]
+                                                    "standard_p100",
+                                                    "standard_v100"]
       elif FLAGS.worker_gpu == 4:
         assert FLAGS.cloud_mlengine_master_type in ["complex_model_m_gpu",
-                                                    "complex_model_m_p100"]
+                                                    "complex_model_m_p100",
+                                                    "complex_model_m_v100"]
       else:
-        assert FLAGS.cloud_mlengine_master_type == "complex_model_l_gpu"
+        assert FLAGS.cloud_mlengine_master_type in ["complex_model_l_gpu",
+                                                    "complex_model_l_v100"]
     else:
       assert FLAGS.cloud_mlengine_master_type in ["standard", "large_model",
                                                   "complex_model_s",
@@ -371,7 +337,7 @@ def launch():
   job_spec = configure_job()
   job_name = job_spec["jobId"]
   tf.logging.info("Launching job %s with ML Engine spec:\n%s", job_name,
-                  job_spec)
+                  pprint.pformat(job_spec))
   assert confirm()
   train_dir = FLAGS.output_dir
   t2t_tar = tar_and_copy_t2t(train_dir)
@@ -382,3 +348,7 @@ def launch():
   launch_job(job_spec)
   tf.logging.info("Launched %s. See console to track: %s.", job_name,
                   CONSOLE_URL)
+  tf.logging.info("Interact with the training job from the command line:")
+  tf.logging.info("Abort job: gcloud ml-engine jobs cancel %s", job_name)
+  tf.logging.info("Stream logs: gcloud ml-engine jobs stream-logs %s", job_name)
+  tf.logging.info("Open tensorboard: tensorboard --logdir %s", train_dir)

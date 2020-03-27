@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Self-attention based language model.
 
 DEPRECATED. Use Transformer which supports running the decoder only.
@@ -30,15 +31,17 @@ from six.moves import range  # pylint: disable=redefined-builtin
 from tensor2tensor.layers import common_attention
 from tensor2tensor.layers import common_hparams
 from tensor2tensor.layers import common_layers
+from tensor2tensor.utils import contrib
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
 import tensorflow.compat.v1 as tf
 
+framework = contrib.framework(msg="warn")
 
-@tf.contrib.framework.deprecated(
-    "2018-09-15",
-    "Use Transformer, which supports decoder-only mode when "
+
+@framework.deprecated(
+    "2018-09-15", "Use Transformer, which supports decoder-only mode when "
     "Transformer.has_input=False.")
 @registry.register_model
 class AttentionLM(t2t_model.T2TModel):

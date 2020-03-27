@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Data generators for translation data-sets."""
 
 from __future__ import absolute_import
@@ -28,7 +29,6 @@ from tensor2tensor.utils import registry
 
 import tensorflow.compat.v1 as tf
 
-FLAGS = tf.flags.FLAGS
 
 # End-of-sentence marker.
 EOS = text_encoder.EOS_ID
@@ -222,14 +222,16 @@ class TranslateEnzhWmt32k(translate.TranslateProblem):
         self.source_vocab_name,
         self.approx_vocab_size,
         source_datasets,
-        file_byte_budget=1e8)
+        file_byte_budget=1e8,
+        max_subtoken_length=self.max_subtoken_length)
     target_vocab = generator_utils.get_or_generate_vocab(
         data_dir,
         tmp_dir,
         self.target_vocab_name,
         self.approx_vocab_size,
         target_datasets,
-        file_byte_budget=1e8)
+        file_byte_budget=1e8,
+        max_subtoken_length=self.max_subtoken_length)
     tag = "train" if train else "dev"
     filename_base = "wmt_enzh_%sk_tok_%s" % (self.approx_vocab_size, tag)
     data_path = translate.compile_data(tmp_dir, datasets, filename_base)

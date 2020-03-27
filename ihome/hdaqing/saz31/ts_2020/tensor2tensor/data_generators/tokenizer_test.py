@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Tensor2Tensor Authors.
+# Copyright 2020 The Tensor2Tensor Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # coding=utf-8
 """Tests for tensor2tensor.data_generators.tokenizer."""
 
@@ -26,7 +27,6 @@ from six.moves import range  # pylint: disable=redefined-builtin
 from tensor2tensor.data_generators import tokenizer
 import tensorflow.compat.v1 as tf
 
-FLAGS = tf.flags.FLAGS
 
 pkg_dir, _ = os.path.split(__file__)
 _TESTDATA = os.path.join(pkg_dir, "test_data")

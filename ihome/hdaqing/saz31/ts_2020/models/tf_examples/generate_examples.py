@@ -25,17 +25,17 @@ flags.DEFINE_string(
 
 flags.DEFINE_string(
     'example_output_path',
-    '/zfs1/hdaqing/saz31/dataset/example_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/example_v2_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
     'text_output_path',
-    '/zfs1/hdaqing/saz31/dataset/text_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/text_v2_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
     'rule_output_path',
-    '/zfs1/hdaqing/saz31/dataset/rule_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/rule_v2_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
@@ -87,6 +87,10 @@ flags.DEFINE_integer(
     "syntax_level", 3,
     "Maximum depth of syntax tree."
 )
+
+flags.DEFINE_integer("num_thread", 512, "number of threads.")
+flags.DEFINE_integer("cur_thread", -1, "current thread")
+
 
 FLAGS = flags.FLAGS
 
@@ -215,10 +219,14 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
     json_file = json_file + 'shard%s.txt' % idx
     if not os.path.exists(json_file):
         return
+    if hash(json_file) % FLAGS.num_thread != FLAGS.cur_thread:
+        return
+    print('Process %s for thread %s/%s' % (json_file, FLAGS.cur_thread, FLAGS.num_thread))
 
     example_file = FLAGS.example_output_path + 'shard_%s_%s.example' % (prefix, idx)
     if os.path.exists(example_file):
         return
+    print('Process %s with thread %s and hash %s' % (example_file, FLAGS.cur_thread, hash(example_file)))
     writer = tf.python_io.TFRecordWriter(example_file)
 
     text_file = FLAGS.text_output_path + 'shard_%s_%s.txt' % (prefix, idx)
@@ -237,9 +245,11 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
 
     texts, rules = [], []
     duplicate_checker = set()
-    for comp, simp in zip(comps, simps):
-        comp = text_process(comp.lower().strip())
-        simp = text_process(simp.lower().strip())
+    for comp_ori, simp_ori in zip(comps, simps):
+        comp_ori = text_process(comp_ori.strip())
+        simp_ori = text_process(simp_ori.strip())
+        comp = text_process(comp_ori.lower().strip())
+        simp = text_process(simp_ori.lower().strip())
 
         key = '%s-%s' % (comp, simp)
         if key in duplicate_checker:
@@ -247,7 +257,7 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
         duplicate_checker.add(key)
 
         control_vec, extra_outputs = control_obj.get_control_vec(
-            comp, simp)
+            comp, simp, comp_ori, simp_ori)
         control_inputs = extra_outputs["external_inputs"]
         rule = extra_outputs["rules"]
         template_simp = extra_outputs["template_simp_full"]
@@ -365,6 +375,8 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
 
 
 if __name__ == '__main__':
+    assert FLAGS.cur_thread >= 0
+
     json_files = FLAGS.json_file.split(',')
     prefixs = FLAGS.prefixs.split(',')
     assert len(prefixs) == len(json_files)

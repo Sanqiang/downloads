@@ -160,7 +160,7 @@ def fast_tpu_gather(params, indices, name=None):
     if dtype.is_integer:
       gather_result = tf.batch_gather(params, indices)
     else:
-      gather_result = tf.batch_gather(params, indices)
+      gather_result = _gather(params, indices)
 
     return gather_result
 
@@ -304,7 +304,7 @@ def compute_topk_scores_and_seq(sequences,
                                 prefix="default",
                                 states_to_gather=None,
                                 use_tpu=False,
-                                use_top_k_with_unique=True):
+                                use_top_k_with_unique=False):
   """Given sequences and scores, will gather the top k=beam size sequences.
 
   This function is used to grow alive, and finished. It takes sequences,
@@ -343,7 +343,7 @@ def compute_topk_scores_and_seq(sequences,
      topk_gathered_scores [batch_size, beam_size],
      topk_finished_flags[batch_size, beam_size])
   """
-  if not use_tpu:
+  if True or not use_tpu:
     _, topk_indexes = tf.nn.top_k(scores, k=beam_size)
     # The next three steps are to create coordinates for tf.gather_nd to pull
     # out the topk sequences from sequences based on scores.
@@ -401,9 +401,11 @@ def beam_search(symbols_to_logits_fn,
                 alpha,
                 states=None,
                 eos_id=EOS_ID,
-                stop_early=True,
+                stop_early=False,
                 use_tpu=False,
-                use_top_k_with_unique=True):
+                use_top_k_with_unique=False,
+                hard_length_constrain=None,
+                tfprint=False):
   """Beam search with length penalties.
 
   Requires a function that can take the currently decoded symbols and return
@@ -594,7 +596,7 @@ def beam_search(symbols_to_logits_fn,
     elif use_tpu:
       flat_logits = symbols_to_logits_fn(flat_ids, i)
     else:
-      flat_logits = symbols_to_logits_fn(flat_ids)
+      flat_logits = symbols_to_logits_fn(flat_ids, i)
 
     logits = tf.reshape(flat_logits, [batch_size, beam_size, -1])
 
@@ -648,7 +650,10 @@ def beam_search(symbols_to_logits_fn,
     else:
       # Gather up the most probable 2*beams both for the ids and
       # finished_in_alive bools
-      topk_seq = fast_tpu_gather(alive_seq, topk_beam_index)
+      batch_pos = compute_batch_indices(batch_size, beam_size * 2)
+      topk_coordinates = tf.stack([batch_pos, topk_beam_index], axis=2)
+      topk_seq = tf.gather_nd(alive_seq, topk_coordinates)
+      # topk_seq = fast_tpu_gather(alive_seq, topk_coordinates)
 
       if states:
         states = nest.map_structure(
@@ -660,6 +665,13 @@ def beam_search(symbols_to_logits_fn,
       topk_seq = tf.transpose(topk_seq, perm=[1, 2, 0])
 
     topk_finished = tf.equal(topk_ids, eos_id)
+
+    if tfprint:
+      print_op = tf.print(
+          "topk_ids:", topk_ids,
+          summarize=-1)
+      with tf.control_dependencies([print_op]):
+          topk_seq = tf.identity(topk_seq)
 
     return topk_seq, topk_log_probs, topk_scores, topk_finished, states
 
@@ -720,6 +732,13 @@ def beam_search(symbols_to_logits_fn,
     finished_seq, finished_scores, finished_flags, _ = grow_finished(
         finished_seq, finished_scores, finished_flags, topk_seq, topk_scores,
         topk_finished)
+
+    # print_op = tf.print(
+    #     "finished_seq:", finished_seq,
+    #     "finished_scores", finished_scores,
+    #     summarize=-1)
+    # with tf.control_dependencies([print_op]):
+    #     alive_seq = tf.identity(alive_seq)
 
     return (i + 1, alive_seq, alive_log_probs, finished_seq, finished_scores,
             finished_flags, states)
@@ -811,4 +830,4 @@ def beam_search(symbols_to_logits_fn,
       tf.reduce_any(finished_flags, 1), finished_seq, alive_seq)
   finished_scores = tf.where(
       tf.reduce_any(finished_flags, 1), finished_scores, alive_log_probs)
-  return finished_seq, finished_scores, states
+  return finished_seq, finished_scores
