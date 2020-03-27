@@ -1,7 +1,7 @@
 import functools
 import glob
 import multiprocessing
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from multiprocessing import Pool
 
 flags = tf.flags

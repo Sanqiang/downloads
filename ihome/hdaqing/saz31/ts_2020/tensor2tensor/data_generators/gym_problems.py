@@ -33,7 +33,7 @@ from tensor2tensor.rl.envs import tf_atari_wrappers
 from tensor2tensor.utils import metrics
 from tensor2tensor.utils import registry
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from tensorflow.contrib.training import HParams
 

@@ -6,7 +6,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def sequence_loss(logits,

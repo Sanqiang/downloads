@@ -23,7 +23,7 @@ from absl.testing import parameterized
 from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
 from tensor2tensor.mesh_tensorflow import placement_mesh_impl
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class MeshTensorFlowTest(parameterized.TestCase, tf.test.TestCase):

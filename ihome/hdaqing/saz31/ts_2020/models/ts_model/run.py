@@ -2,7 +2,7 @@ import collections
 import os
 import time
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import wandb
 from models.tpu_models.common import tpu_profiler_hook
 from models.ts_model.data2 import Data

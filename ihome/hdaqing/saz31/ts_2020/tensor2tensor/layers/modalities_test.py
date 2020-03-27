@@ -22,7 +22,7 @@ from tensor2tensor.layers import common_hparams
 from tensor2tensor.layers import modalities
 from tensor2tensor.utils import expert_utils
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class ModalityTest(tf.test.TestCase):

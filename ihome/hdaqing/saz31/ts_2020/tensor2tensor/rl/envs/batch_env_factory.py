@@ -35,7 +35,7 @@ from tensor2tensor.rl.envs import batch_env
 from tensor2tensor.rl.envs import py_func_batch_env
 from tensor2tensor.rl.envs import simulated_batch_env
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def batch_env_factory(hparams, xvfb=False):

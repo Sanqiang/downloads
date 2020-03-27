@@ -27,7 +27,7 @@ from tensor2tensor.data_generators import generator_utils
 from tensor2tensor.data_generators import text_encoder
 from tensor2tensor.utils import data_reader
 from tensor2tensor.utils import metrics
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.contrib.tpu.python.tpu import tpu_config
 
 

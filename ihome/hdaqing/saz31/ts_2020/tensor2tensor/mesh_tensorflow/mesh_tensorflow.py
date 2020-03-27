@@ -25,7 +25,7 @@ import six
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
 from tensor2tensor.mesh_tensorflow import mtf_utils
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 Dimension = collections.namedtuple("Dimension", ["name", "size"])

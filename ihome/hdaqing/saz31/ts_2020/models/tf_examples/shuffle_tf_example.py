@@ -2,7 +2,7 @@ import os
 import glob
 import json
 import random
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import collections
 
 flags = tf.flags

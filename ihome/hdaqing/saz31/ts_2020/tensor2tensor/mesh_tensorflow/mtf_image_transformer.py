@@ -30,7 +30,7 @@ from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
 from tensor2tensor.mesh_tensorflow import mtf_layers
 from tensor2tensor.mesh_tensorflow import mtf_model
 from tensor2tensor.utils import registry
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 @registry.register_model

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import glob
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import wandb
 from models.ts_model.data import Data
 from models.ts_model.graph import TsGraph

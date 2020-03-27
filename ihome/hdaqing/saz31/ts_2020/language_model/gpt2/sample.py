@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import math_ops
 

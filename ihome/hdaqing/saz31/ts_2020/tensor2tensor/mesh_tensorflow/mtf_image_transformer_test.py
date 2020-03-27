@@ -25,7 +25,7 @@ from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
 from tensor2tensor.mesh_tensorflow import mtf_image_transformer
 from tensor2tensor.mesh_tensorflow import placement_mesh_impl
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 # Constants shared between all functions.
 BATCH_SIZE = 8

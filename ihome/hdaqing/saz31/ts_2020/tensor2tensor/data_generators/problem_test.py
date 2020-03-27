@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import numpy as np
 from tensor2tensor.data_generators import algorithmic
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def assert_tensors_equal(sess, t1, t2, n):

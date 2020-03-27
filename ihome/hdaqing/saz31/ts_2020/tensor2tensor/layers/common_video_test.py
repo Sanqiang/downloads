@@ -19,7 +19,7 @@ import numpy as np
 
 from tensor2tensor.layers import common_video
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class CommonVideoTest(tf.test.TestCase):

@@ -28,7 +28,7 @@ from tensor2tensor.models.video import basic_deterministic_params
 
 from tensor2tensor.utils import registry
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 @registry.register_model

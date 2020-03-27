@@ -25,7 +25,7 @@ from tensor2tensor.mesh_tensorflow import mtf_layers
 from tensor2tensor.mesh_tensorflow import mtf_optimize
 from tensor2tensor.mesh_tensorflow import mtf_utils
 from tensor2tensor.mesh_tensorflow.simd_mesh_impl import SimdMeshImpl
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from tensorflow.contrib.tpu.python.tpu import tpu_config
 from tensorflow.contrib.tpu.python.tpu import tpu_estimator

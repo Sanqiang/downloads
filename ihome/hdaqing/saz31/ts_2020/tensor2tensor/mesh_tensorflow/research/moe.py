@@ -25,7 +25,7 @@ from __future__ import print_function
 
 from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
 from tensor2tensor.mesh_tensorflow import mtf_layers
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 

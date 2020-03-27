@@ -26,7 +26,7 @@ from tensor2tensor.models.video import basic_deterministic_params  # pylint: dis
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import t2t_model
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 tfl = tf.layers

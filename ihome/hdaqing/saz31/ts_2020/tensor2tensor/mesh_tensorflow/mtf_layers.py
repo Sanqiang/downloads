@@ -20,7 +20,7 @@ from __future__ import print_function
 
 
 from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def dense(x, output_dim, reduced_dims=None, expert_dims=None,

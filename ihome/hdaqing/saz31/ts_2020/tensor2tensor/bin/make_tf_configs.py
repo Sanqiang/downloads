@@ -29,7 +29,7 @@ from __future__ import division
 from __future__ import print_function
 
 import json
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 flags = tf.flags
 FLAGS = flags.FLAGS

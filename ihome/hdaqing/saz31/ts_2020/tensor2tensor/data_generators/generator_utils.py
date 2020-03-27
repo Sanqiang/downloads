@@ -32,7 +32,7 @@ import six.moves.urllib_request as urllib
 
 from tensor2tensor.data_generators import text_encoder
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 UNSHUFFLED_SUFFIX = "-unshuffled"
 

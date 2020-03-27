@@ -23,7 +23,7 @@ from tensor2tensor.data_generators import cifar  # pylint: disable=unused-import
 from tensor2tensor.models.research import multimodel
 from tensor2tensor.utils import registry
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class MultiModelTest(tf.test.TestCase):

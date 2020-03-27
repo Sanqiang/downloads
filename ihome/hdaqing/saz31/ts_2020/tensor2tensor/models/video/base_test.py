@@ -31,7 +31,7 @@ from tensor2tensor.models.video import sv2p_params
 
 from tensor2tensor.utils import registry
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def fill_hparams(hparams, in_frames, out_frames):

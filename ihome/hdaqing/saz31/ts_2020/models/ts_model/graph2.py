@@ -1,7 +1,7 @@
 import os
 import copy
 import json
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensor2tensor.models import transformer
 from tensor2tensor.layers import common_attention
 from tensor2tensor.utils import beam_search_tpu as beam_search

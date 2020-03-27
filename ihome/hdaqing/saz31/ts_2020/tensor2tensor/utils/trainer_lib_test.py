@@ -23,7 +23,7 @@ from tensor2tensor.data_generators import algorithmic
 from tensor2tensor.data_generators import problem as problem_lib
 from tensor2tensor.utils import registry
 from tensor2tensor.utils import trainer_lib
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class TrainerLibTest(tf.test.TestCase):

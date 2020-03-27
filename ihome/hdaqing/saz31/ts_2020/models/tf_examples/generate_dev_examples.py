@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from models.utils.control_utils import ControlMethod
 from language_model.bert import tokenization
 from models.ts_model.data import BertVocab, _pad_sent, _clean_sent_ids

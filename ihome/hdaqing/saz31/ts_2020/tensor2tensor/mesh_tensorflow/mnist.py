@@ -26,7 +26,7 @@ from tensor2tensor.mesh_tensorflow import mnist_dataset as dataset
 from tensor2tensor.mesh_tensorflow import mtf_layers
 from tensor2tensor.mesh_tensorflow import mtf_optimize
 from tensor2tensor.mesh_tensorflow import placement_mesh_impl
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 tf.flags.DEFINE_string("data_dir", "/tmp/mnist_data",

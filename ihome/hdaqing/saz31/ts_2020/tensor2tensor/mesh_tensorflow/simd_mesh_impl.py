@@ -22,7 +22,7 @@ from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
 from tensor2tensor.mesh_tensorflow import mtf_utils
 from tensor2tensor.mesh_tensorflow import tpu_variables
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from tensorflow.contrib.tpu.python.ops import tpu_ops
 from tensorflow.python.framework import ops

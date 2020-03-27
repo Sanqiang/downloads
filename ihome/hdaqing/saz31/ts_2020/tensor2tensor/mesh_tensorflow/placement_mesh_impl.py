@@ -21,7 +21,7 @@ import functools
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
 from tensor2tensor.mesh_tensorflow import mesh_tensorflow as mtf
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 class PlacementMeshImpl(mtf.MeshImpl):

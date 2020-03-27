@@ -3,7 +3,7 @@ Utils for ckpt
 """
 import collections
 import re
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 def get_bert_assignment_map_from_checkpont(tvars, bert_init_checkpoint):
   initialized_variable_names = {
