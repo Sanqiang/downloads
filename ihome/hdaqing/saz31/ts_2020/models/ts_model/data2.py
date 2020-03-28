@@ -139,7 +139,7 @@ class Data:
                  [self.flags.syntax_level * self.flags.max_syntax_src_len], tf.int64)})
 
         if 'bart' in self.flags.control_mode:
-            del self.feature_set['control_ids']
+            # del self.feature_set['control_ids']
             del self.feature_set['template_comp_ids']
 
         # if 'syntax_gen' in self.flags.control_mode:
