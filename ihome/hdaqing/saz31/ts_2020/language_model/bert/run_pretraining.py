@@ -344,8 +344,8 @@ def input_fn_builder(input_files,
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
         "masked_lm_weights":
             tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
-        "next_sentence_labels":
-            tf.FixedLenFeature([1], tf.int64),
+        # "next_sentence_labels":
+        #     tf.FixedLenFeature([1], tf.int64),
     }
 
     # For training, we want a lot of parallel reading and shuffling.
