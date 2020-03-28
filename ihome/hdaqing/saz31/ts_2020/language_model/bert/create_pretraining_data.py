@@ -20,21 +20,22 @@ from __future__ import print_function
 
 import collections
 import random
-import tokenization
+from language_model.bert import tokenization
 import tensorflow as tf
+import os
 
 flags = tf.flags
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("input_file", None,
+flags.DEFINE_string("input_file", "/zfs1/hdaqing/saz31/dataset/wikipedia_dump/wiki_output_clean_tokenized_shards/*.txt",
                     "Input raw text file (or comma-separated list of files).")
 
 flags.DEFINE_string(
-    "output_file", None,
+    "output_file", "/zfs1/hdaqing/saz31/dataset/wikipedia_dump/bert_data/",
     "Output TF example file (or comma-separated list of files).")
 
-flags.DEFINE_string("vocab_file", None,
+flags.DEFINE_string("vocab_file", "/ihome/hdaqing/saz31/ts_2020/language_model/bert/uncased_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_bool(
@@ -43,7 +44,7 @@ flags.DEFINE_bool(
     "models and False for cased models.")
 
 flags.DEFINE_bool(
-    "do_whole_word_mask", False,
+    "do_whole_word_mask", True,
     "Whether to use whole word masking rather than per-WordPiece masking.")
 
 flags.DEFINE_integer("max_seq_length", 128, "Maximum sequence length.")
@@ -54,7 +55,7 @@ flags.DEFINE_integer("max_predictions_per_seq", 20,
 flags.DEFINE_integer("random_seed", 12345, "Random seed for data generation.")
 
 flags.DEFINE_integer(
-    "dupe_factor", 10,
+    "dupe_factor", 25,
     "Number of times to duplicate the input data (with different masks).")
 
 flags.DEFINE_float("masked_lm_prob", 0.15, "Masked LM probability.")
@@ -63,6 +64,9 @@ flags.DEFINE_float(
     "short_seq_prob", 0.1,
     "Probability of creating sequences which are shorter than the "
     "maximum length.")
+
+flags.DEFINE_integer("num_thread", 512, "number of threads.")
+flags.DEFINE_integer("cur_thread", 0, "current thread")
 
 
 class TrainingInstance(object):
@@ -136,7 +140,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["masked_lm_positions"] = create_int_feature(masked_lm_positions)
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
-    features["next_sentence_labels"] = create_int_feature([next_sentence_label])
+    # features["next_sentence_labels"] = create_int_feature([next_sentence_label])
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
 
@@ -268,7 +272,8 @@ def create_instances_from_document(
         tokens_b = []
         # Random next
         is_random_next = False
-        if len(current_chunk) == 1 or rng.random() < 0.5:
+        # TODO(sanqiang): Never has NSP
+        if len(current_chunk) == 1 or rng.random() < 0.5 and False:
           is_random_next = True
           target_b_length = target_seq_length - len(tokens_a)
 
@@ -441,7 +446,11 @@ def main(_):
 
   input_files = []
   for input_pattern in FLAGS.input_file.split(","):
-    input_files.extend(tf.gfile.Glob(input_pattern))
+    files = tf.gfile.Glob(input_pattern)
+    for file in files:
+      if hash(file) % FLAGS.num_thread != FLAGS.cur_thread:
+        continue
+      input_files.append(file)
 
   tf.logging.info("*** Reading from input files ***")
   for input_file in input_files:
@@ -453,13 +462,10 @@ def main(_):
       FLAGS.short_seq_prob, FLAGS.masked_lm_prob, FLAGS.max_predictions_per_seq,
       rng)
 
-  output_files = FLAGS.output_file.split(",")
-  tf.logging.info("*** Writing to output files ***")
-  for output_file in output_files:
-    tf.logging.info("  %s", output_file)
-
+  output_file = [os.path.join(
+    FLAGS.output_file, 'shard%s.example' % FLAGS.cur_thread)]
   write_instance_to_example_files(instances, tokenizer, FLAGS.max_seq_length,
-                                  FLAGS.max_predictions_per_seq, output_files)
+                                  FLAGS.max_predictions_per_seq, output_file)
 
 
 if __name__ == "__main__":

@@ -175,7 +175,9 @@ class FullTokenizer(object):
 
     return split_tokens
 
-  def tokenize_stack(self, text, vocab):
+  def tokenize_stack(self, text, vocab,  do_lower_case=True):
+    if do_lower_case:
+      text = text.lower()
     split_tokens = []
     for token in text.split():
       split_tokens.append([])
