@@ -81,11 +81,11 @@ flags.DEFINE_integer("max_eval_steps", 100, "Maximum number of eval steps.")
 
 flags.DEFINE_bool("use_tpu", True, "Whether to use TPU or GPU/CPU.")
 
-tf.flags.DEFINE_string(
-    "tpu_name", None,
-    "The Cloud TPU to use for training. This should be either the name "
-    "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
-    "url.")
+# tf.flags.DEFINE_string(
+#     "tpu_name", None,
+#     "The Cloud TPU to use for training. This should be either the name "
+#     "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
+#     "url.")
 
 tf.flags.DEFINE_string(
     "tpu_zone", None,
@@ -421,9 +421,10 @@ def main(_):
     tf.logging.info("  %s" % input_file)
 
   tpu_cluster_resolver = None
-  if FLAGS.use_tpu and FLAGS.tpu_name:
+  if FLAGS.use_tpu:
+    tpu_name = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
-        FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
+        tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
   is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
   run_config = tf.contrib.tpu.RunConfig(
