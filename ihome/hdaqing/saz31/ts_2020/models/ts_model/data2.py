@@ -119,10 +119,17 @@ class Data:
             'trg_ids': tf.FixedLenFeature([self.flags.max_trg_len], tf.int64),
         }
 
-        # if self.flags.control_mode:
-        self.feature_set.update(
-            {'control_ids': tf.FixedLenFeature([self.flags.max_ppdb_len], tf.int64)})
-        # 'control_vec': tf.FixedLenFeature([8], tf.float32)
+        if "ppdb" in self.flags.control_mode:
+            self.feature_set.update(
+                {'control_ids': tf.FixedLenFeature([self.flags.max_ppdb_len], tf.int64)})
+
+        self.control_vec_len = 0
+        if 'control' in self.flags.control_mode:
+            self.sent_control_vec_len, self.word_control_vec_len = 4, 3
+            self.control_vec_len = self.sent_control_vec_len + self.word_control_vec_len
+            self.feature_set.update({
+                'sent_control_vec': tf.FixedLenFeature([self.sent_control_vec_len], tf.float32),
+                'word_control_vec': tf.FixedLenFeature([self.word_control_vec_len], tf.float32)})
 
         # if 'syntax_gen' in self.flags.control_mode:
         self.feature_set.update(
@@ -142,20 +149,6 @@ class Data:
             self.vocab = GPT2Vocab(flags.models_dir, flags.model_name)
         elif 'bert_vocab' in self.flags.model_mode:
             self.vocab = BertVocab(flags.bert_vocab_file)
-
-        self.control_vec_len = 0
-        if "rel" in self.flags.control_mode:
-            self.control_vec_len += 1
-        if "sent_length" in self.flags.control_mode:
-            self.control_vec_len += 1
-        if "word_length" in self.flags.control_mode:
-            self.control_vec_len += 1
-        if "syntax" in self.flags.control_mode:
-            self.control_vec_len += 1
-        if "split" in self.flags.control_mode:
-            self.control_vec_len += 1
-        if "ppdb" in self.flags.control_mode:
-            self.control_vec_len += 1
 
         # self.reserve_dimension = 0
         # self.control_vec_dimension = self.flags.dimension

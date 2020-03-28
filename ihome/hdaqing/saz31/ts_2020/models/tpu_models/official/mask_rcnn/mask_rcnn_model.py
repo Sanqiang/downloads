@@ -29,7 +29,7 @@ import re
 from absl import logging
 import numpy as np
 import six
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import tensorflow.compat.v2 as tf2
 
 import anchors

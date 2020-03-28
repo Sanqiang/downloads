@@ -16,7 +16,7 @@
 
 import os
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from hyperparameters import params_dict
 

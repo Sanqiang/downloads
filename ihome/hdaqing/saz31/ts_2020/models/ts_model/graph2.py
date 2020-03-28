@@ -188,6 +188,14 @@ class TsGraph:
                  for o in range(eval_batch_size)], axis=0)
             self.shared_tensors['control_bias'] = control_bias
 
+        # if 'control_vec' in self.shared_tensors:
+        #     control_vec = self.shared_tensors['control_vec']
+        #     control_vec = tf.concat(
+        #         [tf.tile(tf.expand_dims(control_vec[o, :], axis=0),
+        #                  [self.flags.beam_search_size, 1])
+        #          for o in range(eval_batch_size)], axis=0)
+        #     self.shared_tensors['control_vec'] = control_vec
+
         if "flatten" in self.flags.control_mode:
             control_vec = self.shared_tensors['control_vec']
             control_vec = tf.concat(
@@ -206,7 +214,7 @@ class TsGraph:
             score = tf.reshape(score, [-1, 1, self.flags.dimension])
 
         embedding_start = tf.slice(embedding, [0, 0, 0], [-1, 1, -1])
-        embedding_start *= tf.expand_dims(score,  axis=1)
+        embedding_start *= score
         embedding_rest = tf.slice(embedding, [0, 1, 0], [-1, -1, -1])
         output_embedding = tf.concat([embedding_start, embedding_rest], axis=1)
         print('Update embedding.')
@@ -219,6 +227,8 @@ class TsGraph:
                 guild_embs, guild_bias, self.hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
         guild_outputs = common_attention.add_timing_signal_1d(guild_outputs)
+        guild_outputs = self.update_embedding(
+            guild_outputs, is_decoder=False)
         return guild_outputs, guild_bias
 
     def encode_syntax_template(self, template_embs, template_bias):
@@ -227,6 +237,8 @@ class TsGraph:
                 template_embs, template_bias, self.syntax_hparams,
                 shared_weight='shared' in self.flags.t2t_mode)
         template_outputs = common_attention.add_timing_signal_1d(template_outputs)
+        template_outputs = self.update_embedding(
+            template_outputs, is_decoder=False)
         return template_outputs, template_bias
 
     def decode_syntax_template(self, trg_syntax_emb):
@@ -438,8 +450,9 @@ class TsGraph:
                 self.shared_tensors['control_outputs'] = control_outputs
                 self.shared_tensors['control_bias'] = control_bias
 
-            if 'bart' not in self.flags.control_mode and 'control_vec' in features:
-                self.shared_tensors['control_vec'] = features['control_vec']
+            if 'bart' not in self.flags.control_mode and 'control' in self.flags.control_mode :
+                self.shared_tensors['control_vec'] = tf.concat(
+                    [features['sent_control_vec'], features['word_control_vec']], axis=1)
             else:
                 self.shared_tensors['control_vec'] = tf.zeros([self.batch_size, 1])
 
@@ -472,32 +485,37 @@ class TsGraph:
 
         if 'bart' not in self.flags.control_mode:
             outputs["control_vec"] = self.shared_tensors['control_vec']
-        if self.flags.control_mode and self.data.control_vec_len > 0:
+        if 'control' in self.flags.control_mode:
             # if "flatten" not in self.flags.control_mode:
-            #     # print_op = tf.print("Debug output:", self.shared_tensors['control_vec'])
-            #     # with tf.control_dependencies([print_op]):
-            #     #     self.shared_tensors['control_vec'] = tf.identity(self.shared_tensors['control_vec'])
-            # 
-            #     dupicate_copies = self.flags.dimension // self.data.control_vec_len
-            # 
-            #     # batch_size = self.flags.train_batch_size if self.is_training else self.batch_size
-            #     control_vec = tf.concat(
-            #         [tf.reshape(tf.transpose(tf.tile(tf.expand_dims(self.shared_tensors['control_vec'][o, :], axis=0),
-            #                                          [dupicate_copies, 1])), [1, self.flags.dimension])
-            #          for o in range(batch_size)], axis=0)
+            dimension_per_factor = self.flags.dimension // self.data.control_vec_len
+
+            batch_size = self.flags.train_batch_size if self.is_training else self.flags.eval_batch_size
+            if self.flags.use_tpu:
+                batch_size //= 8
+            control_vec = tf.concat(
+                [tf.reshape(tf.transpose(
+                    tf.tile(
+                        tf.expand_dims(self.shared_tensors['control_vec'][o, :], axis=0),
+                        [dimension_per_factor, 1])),
+                    [1, dimension_per_factor * self.data.control_vec_len])
+                 for o in range(batch_size)], axis=0)
+            more_control_vec = tf.zeros(
+                [batch_size, self.flags.dimension % self.data.control_vec_len])
+            # if not self.is_training and self.flags.beam_search_size > 1:
             #     more_control_vec = tf.zeros(
-            #         [batch_size, self.flags.dimension % self.data.control_vec_len])
-            #     if not self.is_training and self.flags.beam_search_size > 1:
-            #         more_control_vec = tf.zeros(
-            #             [batch_size * self.flags.beam_search_size, self.flags.dimension % self.data.control_vec_len])
-            #     self.shared_tensors['control_vec'] = tf.concat(
-            #         [control_vec, more_control_vec], axis=1)
+            #         [batch_size * self.flags.beam_search_size, self.flags.dimension % self.data.control_vec_len])
+            self.shared_tensors['control_vec'] = tf.expand_dims(
+                tf.concat([control_vec, more_control_vec], axis=1), axis=1)
+
+            # print_op = tf.print("Debug output:", self.shared_tensors['control_vec'], summarize=-1)
+            # with tf.control_dependencies([print_op]):
+            #     self.shared_tensors['control_vec'] = tf.identity(self.shared_tensors['control_vec'])
             # else:
-            score = tf.expand_dims(self.shared_tensors['control_vec'], axis=-1)
-            score = tf.tile(score, [1, 1, self.flags.dimension])
-            self.shared_tensors['control_vec'] = score
+            # score = tf.expand_dims(self.shared_tensors['control_vec'], axis=-1)
+            # score = tf.tile(score, [1, 1, self.flags.dimension])
+            # self.shared_tensors['control_vec'] = score
         if "encoder" in self.flags.control_mode:
-            src_outputs = self.update_embedding(src_outputs, False)
+            src_outputs = self.update_embedding(src_outputs, is_decoder=False)
             self.shared_tensors['src_outputs'] = src_outputs
 
         with tf.variable_scope("trg_decoder"):
@@ -826,7 +844,7 @@ class TsGraph:
 
                 outputs['gen_trg_ids'] = top_beam_ids
                 outputs['gen_trg_scores'] = confident_score
-                if self.flags.control_mode:
+                if 'ppdb' in self.flags.control_mode:
                     outputs['control_ids'] = features['control_ids']
 
         return outputs

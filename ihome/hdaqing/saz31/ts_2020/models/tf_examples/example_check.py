@@ -8,13 +8,13 @@ flags = tf.flags
 
 flags.DEFINE_string(
     'example_path',
-    '/zfs1/hdaqing/saz31/dataset/example_v0_s2/*',
+    '/zfs1/hdaqing/saz31/dataset/example_v2_s3_l64/*',
     'The path for ppdb outputs.')
 
 FLAGS = flags.FLAGS
 feature_set = {
-        'src_ids': tf.FixedLenFeature([150], tf.int64),
-        'trg_ids': tf.FixedLenFeature([150], tf.int64),
+        'src_ids': tf.FixedLenFeature([64], tf.int64),
+        'trg_ids': tf.FixedLenFeature([64], tf.int64),
 }
 
 

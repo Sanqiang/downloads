@@ -1,6 +1,6 @@
 import tensorflow as tf
 from models.utils.control_utils import ControlMethod
-from language_model.bert import tokenization
+from language_model.gpt2.evaluate_pb import GPT2Infer
 from models.ts_model.data import BertVocab, _pad_sent, _clean_sent_ids
 from collections import Counter
 
@@ -8,18 +8,24 @@ flags = tf.flags
 
 flags.DEFINE_string(
     'comp_path',
-    '/Users/sanqiang/git/ts/text_simplification_data/test2/ncomp/test.8turkers.tok.norm.ori',
+    '/zfs1/hdaqing/saz31/dataset/dev/test.8turkers.tok.norm.ori',
     'The path for comp file.')
 flags.DEFINE_string(
     'example_output_path',
-    '/Users/sanqiang/git/ts/ts_2020_data/tune.example',
+    '/zfs1/hdaqing/saz31/dataset/dev/test.example',
     'The path for ppdb outputs.')
+
 flags.DEFINE_string(
-    "ppdb_file", "/Users/sanqiang/git/ts/ts_2020_data/ppdb.txt",
+    'text_output_path',
+    '/zfs1/hdaqing/saz31/dataset/dev/test.txt',
+    'The path for ppdb outputs.')
+
+flags.DEFINE_string(
+    "ppdb_file", "/zfs1/hdaqing/saz31/dataset/ppdb.txt",
     "The file path of ppdb")
 
 flags.DEFINE_string(
-    "ppdb_vocab", "/Users/sanqiang/git/ts/ts_2020_data/vocab",
+    "ppdb_vocab", "/zfs1/hdaqing/saz31/dataset/rule_v2_s3_l64/vocab",
     "The file path of ppdb vocab generated from train")
 
 flags.DEFINE_string(
@@ -27,40 +33,40 @@ flags.DEFINE_string(
     "choice of :")
 
 flags.DEFINE_string(
-    "syntax_vocab_file", "/Users/sanqiang/git/ts/text_simplification_data/syntax_all_vocab.txt",
+    "syntax_vocab_file", "/zfs1/hdaqing/saz31/dataset/syntax_all_vocab.txt",
     "The file path of bert vocab")
 
 flags.DEFINE_string(
-    "bert_vocab_file", "/Users/sanqiang/git/ts/text_simplification_data/vocab.txt",
+    "bert_vocab_file", "/ihome/hdaqing/saz31/ts_2020/language_model/bert/uncased_L-12_H-768_A-12/vocab.txt",
     "The file path of bert vocab")
 
 
 flags.DEFINE_integer(
-    "max_src_len", 150,
+    "max_src_len", 128,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "max_trg_len", 150,
+    "max_trg_len", 128,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "max_syntax_src_len", 150,
+    "max_syntax_src_len", 128,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "max_syntax_trg_len", 150,
+    "max_syntax_trg_len", 128,
     "Maximum length of sentence."
 )
 flags.DEFINE_integer(
-    "max_ppdb_len", 100,
+    "max_ppdb_len", 128,
     "Maximum length of sentence."
 )
 
 flags.DEFINE_integer(
-    "syntax_level", 2,
+    "syntax_level", 3,
     "Maximum depth of syntax tree."
 )
 
@@ -104,20 +110,23 @@ def text_process(line):
 
 if __name__ == '__main__':
     control_obj = ControlMethod(FLAGS)
+    lm = GPT2Infer()
     vocab = BertVocab(FLAGS.bert_vocab_file)
     syntax_vocab = BertVocab(FLAGS.syntax_vocab_file)
+    texts = []
 
     writer = tf.python_io.TFRecordWriter(FLAGS.example_output_path)
     max_seq_len = 0
     max_seq_len_c = Counter()
 
     for line in open(FLAGS.comp_path):
-        vec, extra_outputs = control_obj.get_control_vec_eval(line)
-
         if FLAGS.syntax_vocab_file and FLAGS.bert_vocab_file:
+            comp_ori = text_process(line.strip())
             comp = text_process(line.lower().strip())
             simp = text_process("".lower().strip())
             print(comp)
+
+            vec, extra_outputs = control_obj.get_control_vec_eval(comp, comp_ori, lm=lm)
 
             control_inputs = extra_outputs["external_inputs"]
             rule = extra_outputs["rules"]
@@ -227,6 +236,8 @@ if __name__ == '__main__':
         writer.write(example.SerializeToString())
         print(max_seq_len)
         print(control_inputs)
+        texts.append('%s \n %s \n %s \n\n\n' % (line, control_inputs, template_comp))
+    open(FLAGS.text_output_path, "w").write(''.join(texts))
 
     print('Done')
     print(max_seq_len)

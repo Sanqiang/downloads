@@ -24,7 +24,7 @@ import os
 from absl import app
 from absl import flags
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from tensorflow.contrib import slim
 from tensorflow.contrib import tpu as contrib_tpu

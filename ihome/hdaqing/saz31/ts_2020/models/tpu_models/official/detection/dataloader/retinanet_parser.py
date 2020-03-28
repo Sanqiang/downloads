@@ -21,7 +21,7 @@ T.-Y. Lin, P. Goyal, R. Girshick, K. He,  and P. Dollar
 Focal Loss for Dense Object Detection. arXiv:1708.02002
 """
 from absl import logging
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from dataloader import anchor
 from dataloader import mode_keys as ModeKeys
 from dataloader import tf_example_decoder

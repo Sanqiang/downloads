@@ -28,7 +28,7 @@ from __future__ import print_function
 import functools
 
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from modeling.architecture import nn_ops
 from ops import spatial_transform_ops

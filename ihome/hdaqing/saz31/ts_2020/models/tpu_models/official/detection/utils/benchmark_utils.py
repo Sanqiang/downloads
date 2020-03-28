@@ -20,7 +20,7 @@ from __future__ import print_function
 
 from absl import logging
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def compute_model_statistics(batch_size):

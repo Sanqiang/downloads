@@ -19,7 +19,7 @@ data for category classification, bounding box regression, and number of
 positive examples to normalize the loss during training.
 
 """
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import anchors
 import coco_utils

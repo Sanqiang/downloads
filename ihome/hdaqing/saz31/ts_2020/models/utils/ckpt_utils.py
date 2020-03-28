@@ -2,7 +2,7 @@ import os
 import time
 import shutil
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 ckpt_prefix = 'model.ckpt-'
 

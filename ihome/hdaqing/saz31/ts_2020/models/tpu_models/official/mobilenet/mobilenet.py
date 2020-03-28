@@ -30,7 +30,7 @@ from absl import app
 from absl import flags
 
 import absl.logging
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import supervised_images
 from hyperparameters import common_hparams_flags

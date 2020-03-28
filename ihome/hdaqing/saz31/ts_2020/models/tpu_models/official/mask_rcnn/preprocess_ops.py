@@ -14,7 +14,7 @@
 # ==============================================================================
 """Preprocessing ops."""
 import math
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import box_utils
 from object_detection import preprocessor

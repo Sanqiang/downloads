@@ -22,7 +22,7 @@ import functools
 
 from absl import app as absl_app
 from absl import flags
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 FLAGS = flags.FLAGS
 

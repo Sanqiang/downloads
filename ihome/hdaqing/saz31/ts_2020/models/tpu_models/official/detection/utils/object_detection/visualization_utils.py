@@ -37,7 +37,7 @@ import PIL.ImageFont as ImageFont
 import six
 from six.moves import range
 from six.moves import zip
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from utils.object_detection import shape_utils
 

@@ -27,7 +27,7 @@ from absl import logging
 
 import six
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from configs import factory
 from configs import io

@@ -35,7 +35,7 @@ from __future__ import print_function
 
 import functools
 from absl import flags
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import sys
 sys.path.insert(0, 'tpu/models')

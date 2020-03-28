@@ -18,7 +18,7 @@
 A decoder to decode string tensors containing serialized tensorflow.Example
 protos for object detection.
 """
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def _get_source_id_from_encoded_image(parsed_tensors):

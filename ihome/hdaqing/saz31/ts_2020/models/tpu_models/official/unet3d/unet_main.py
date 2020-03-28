@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from absl import app
 from absl import flags
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from hyperparameters import params_dict
 import input_reader

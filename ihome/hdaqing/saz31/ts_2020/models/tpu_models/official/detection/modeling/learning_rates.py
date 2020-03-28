@@ -23,7 +23,7 @@ import functools
 
 import numpy as np
 from six.moves import zip
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 def step_learning_rate_with_linear_warmup(global_step,

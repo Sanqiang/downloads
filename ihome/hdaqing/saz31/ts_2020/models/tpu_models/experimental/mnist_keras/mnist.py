@@ -29,7 +29,7 @@ from __future__ import print_function
 from absl import app
 from absl import flags
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import distribute as contrib_distribute
 

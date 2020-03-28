@@ -27,7 +27,7 @@ from absl import logging
 import numpy as np
 from PIL import Image
 from scipy import ndimage
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 flags.DEFINE_string("image_file_pattern", None,
                     "path pattern to an input image npy file.")

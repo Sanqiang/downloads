@@ -21,7 +21,7 @@ from __future__ import print_function
 from absl import app as absl_app
 from absl import flags
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from model import create_params
 

@@ -24,7 +24,7 @@ from __future__ import print_function
 
 import os
 from absl import flags
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import inception_preprocessing
 import vgg_preprocessing

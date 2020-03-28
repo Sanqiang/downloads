@@ -21,7 +21,7 @@ from __future__ import print_function
 
 import collections
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from utils.object_detection import argmax_matcher
 from utils.object_detection import balanced_positive_negative_sampler

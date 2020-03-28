@@ -24,7 +24,7 @@ import functools
 import os
 
 from absl import logging
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import preprocessing
 

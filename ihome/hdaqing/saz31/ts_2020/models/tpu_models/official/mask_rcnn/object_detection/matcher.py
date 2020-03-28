@@ -33,7 +33,7 @@ to query the results.
 """
 import abc
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 class Match(object):

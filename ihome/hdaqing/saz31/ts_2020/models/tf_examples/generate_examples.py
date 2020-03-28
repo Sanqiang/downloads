@@ -2,13 +2,59 @@ import os
 import glob
 import json
 import spacy
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import collections
 from models.utils.control_utils import ControlMethod
 from language_model.bert import tokenization
 from models.ts_model.data import BertVocab, _pad_sent, _clean_sent_ids
 
 flags = tf.flags
+
+# Local test
+# flags.DEFINE_string(
+#     "syntax_vocab_file", "/Users/sanqiang/git/ts/text_simplification_data/syntax_all_vocab.txt",
+#     "The file path of bert vocab")
+#
+# flags.DEFINE_string(
+#     "bert_vocab_file", "/Users/sanqiang/git/ts/text_simplification_data/vocab.txt",
+#     "The file path of bert vocab")
+#
+#
+# flags.DEFINE_string(
+#     "prefixs",
+#     "wikilarge_ori,wikisplit,wikilarge,newsela",
+#     "The output directory where the model checkpoints will be written.")
+#
+# flags.DEFINE_string(
+#     "json_file",
+#     "/Users/sanqiang/git/ts/text_simplification_data/tmp_wikilarge_ori_2048/lm_score/,"
+#     "/Users/sanqiang/git/ts/text_simplification_data/tmp_wikisplit_8192/lm_score/,"
+#     "/Users/sanqiang/git/ts/text_simplification_data/tmp_wikilarge_2048/lm_score/,"
+#     "/Users/sanqiang/git/ts/text_simplification_data/tmp_newsela_1024/lm_score/",
+#     "The output directory where the model checkpoints will be written.")
+#
+# flags.DEFINE_string(
+#     'example_output_path',
+#     '/Users/sanqiang/git/ts/text_simplification_data/example_v2_s3_l64/',
+#     'The path for ppdb outputs.')
+#
+# flags.DEFINE_string(
+#     'text_output_path',
+#     '/Users/sanqiang/git/ts/text_simplification_data/text_v2_s3_l64/',
+#     'The path for ppdb outputs.')
+#
+# flags.DEFINE_string(
+#     'rule_output_path',
+#     '/Users/sanqiang/git/ts/text_simplification_data/rule_v2_s3_l64/',
+#     'The path for ppdb outputs.')
+#
+# flags.DEFINE_string(
+#     "ppdb_file", "/Users/sanqiang/git/ts/text_simplification_data/ppdb_simple.txt",
+#     "The file path of ppdb")
+#
+# flags.DEFINE_string(
+#     "ppdb_vocab", "/Users/sanqiang/git/ts/text_simplification_data/rule_v_not_existed/vocab",
+#     "The file path of ppdb vocab generated from train")
 
 flags.DEFINE_string(
     "prefixs",
@@ -25,17 +71,17 @@ flags.DEFINE_string(
 
 flags.DEFINE_string(
     'example_output_path',
-    '/zfs1/hdaqing/saz31/dataset/example_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/example_v3_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
     'text_output_path',
-    '/zfs1/hdaqing/saz31/dataset/text_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/text_v3_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
     'rule_output_path',
-    '/zfs1/hdaqing/saz31/dataset/rule_v1_s3_l64/',
+    '/zfs1/hdaqing/saz31/dataset/rule_v3_s3_l64/',
     'The path for ppdb outputs.')
 
 flags.DEFINE_string(
@@ -47,7 +93,7 @@ flags.DEFINE_string(
     "The file path of ppdb vocab generated from train")
 
 flags.DEFINE_string(
-    "control_mode", "rel:sent_length:word_length:syntax:split:ppdb:syn_rel:syn_length:val",
+    "control_mode", "word_rel:sent_length:word_length:syntax:syn_length:syn_rel:split:ppdb:val",
     "choice of :")
 
 #
@@ -87,6 +133,10 @@ flags.DEFINE_integer(
     "syntax_level", 3,
     "Maximum depth of syntax tree."
 )
+
+flags.DEFINE_integer("num_thread", 512, "number of threads.")
+flags.DEFINE_integer("cur_thread", 0, "current thread")
+
 
 FLAGS = flags.FLAGS
 
@@ -215,10 +265,14 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
     json_file = json_file + 'shard%s.txt' % idx
     if not os.path.exists(json_file):
         return
+    if hash(json_file) % FLAGS.num_thread != FLAGS.cur_thread:
+        return
+    print('Process %s for thread %s/%s' % (json_file, FLAGS.cur_thread, FLAGS.num_thread))
 
     example_file = FLAGS.example_output_path + 'shard_%s_%s.example' % (prefix, idx)
     if os.path.exists(example_file):
         return
+    print('Process %s with thread %s and hash %s' % (example_file, FLAGS.cur_thread, hash(example_file)))
     writer = tf.python_io.TFRecordWriter(example_file)
 
     text_file = FLAGS.text_output_path + 'shard_%s_%s.txt' % (prefix, idx)
@@ -237,17 +291,19 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
 
     texts, rules = [], []
     duplicate_checker = set()
-    for comp, simp in zip(comps, simps):
-        comp = text_process(comp.lower().strip())
-        simp = text_process(simp.lower().strip())
+    for comp_ori, simp_ori in zip(comps, simps):
+        comp_ori = text_process(comp_ori.strip())
+        simp_ori = text_process(simp_ori.strip())
+        comp = text_process(comp_ori.lower().strip())
+        simp = text_process(simp_ori.lower().strip())
 
         key = '%s-%s' % (comp, simp)
         if key in duplicate_checker:
             continue
         duplicate_checker.add(key)
 
-        control_vec, extra_outputs = control_obj.get_control_vec(
-            comp, simp)
+        sent_vec, word_vec, extra_outputs = control_obj.get_control_vec(
+            comp, simp, comp_ori, simp_ori)
         control_inputs = extra_outputs["external_inputs"]
         rule = extra_outputs["rules"]
         template_simp = extra_outputs["template_simp_full"]
@@ -342,20 +398,21 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
             template_simp_ids = [item for sublist in template_simp_ids for item in sublist]
             feature['template_comp_ids'] = _int_feature(template_comp_ids)
             feature['template_simp_ids'] = _int_feature(template_simp_ids)
-        else:
-            feature['src_wds'] = _bytes_feature([str.encode(comp)])
-            feature['trg_wds'] = _bytes_feature([str.encode(simp)])
-            feature['control_wds'] = _bytes_feature([str.encode(control_inputs[0])])
-            feature['template_comp'] = _bytes_feature([str.encode(template_comp)])
-            feature['template_simp'] = _bytes_feature([str.encode(template_simp)])
-            feature['template_comp_full'] = _bytes_feature([str.encode(template_comp_full)])
-            feature['template_simp_full'] = _bytes_feature([str.encode(template_simp_full)])
-        feature['control_vec'] = _float_feature(control_vec)
+        # else:
+        #     feature['src_wds'] = _bytes_feature([str.encode(comp)])
+        #     feature['trg_wds'] = _bytes_feature([str.encode(simp)])
+        #     feature['control_wds'] = _bytes_feature([str.encode(control_inputs[0])])
+        #     feature['template_comp'] = _bytes_feature([str.encode(template_comp)])
+        #     feature['template_simp'] = _bytes_feature([str.encode(template_simp)])
+        #     feature['template_comp_full'] = _bytes_feature([str.encode(template_comp_full)])
+        #     feature['template_simp_full'] = _bytes_feature([str.encode(template_simp_full)])
+        feature['sent_control_vec'] = _float_feature(sent_vec)
+        feature['word_control_vec'] = _float_feature(word_vec)
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
-        texts.append('%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n' % (
-            comp, simp, control_inputs[0], control_vec,
+        texts.append('%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n' % (
+            comp, simp, control_inputs[0], sent_vec, word_vec,
             template_comp, template_simp,
             'meta:%s\t%s' % (len_src, len_trg)))
         rules.append('\t'.join(rule))
@@ -365,6 +422,8 @@ def process(idx, json_file, prefix, control_obj, vocab, syntax_vocab):
 
 
 if __name__ == '__main__':
+    assert FLAGS.cur_thread >= 0
+
     json_files = FLAGS.json_file.split(',')
     prefixs = FLAGS.prefixs.split(',')
     assert len(prefixs) == len(json_files)

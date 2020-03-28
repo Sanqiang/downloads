@@ -20,7 +20,7 @@ from __future__ import print_function
 
 # Standard Imports
 from absl import flags
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 flags.DEFINE_float('cb_distortion_range', 0.1, 'Cb distortion range +/-')
 

@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from absl import logging
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from tensorflow.python.tpu import tpu_function  # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.tpu.ops import tpu_ops  # pylint: disable=g-direct-tensorflow-import

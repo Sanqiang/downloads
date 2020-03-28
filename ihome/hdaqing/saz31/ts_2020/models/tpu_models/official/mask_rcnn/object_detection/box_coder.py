@@ -28,7 +28,7 @@ it is not the job of a BoxCoder to perform matching.
 """
 import abc
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 # Box coder types.

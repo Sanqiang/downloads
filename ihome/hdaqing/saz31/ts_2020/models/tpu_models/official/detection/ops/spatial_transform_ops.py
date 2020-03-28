@@ -20,7 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 
 _EPSILON = 1e-8

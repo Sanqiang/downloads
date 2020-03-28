@@ -7,7 +7,7 @@ flags = tf.flags
 
 flags.DEFINE_string(
     'example_path',
-    '/Users/sanqiang/git/ts/text_simplification_data/example_v0_tpu/output.example',
+    '/Users/sanqiang/Downloads/data_example_v1_s3_l64_shuffle_shard_0.example',
     'The path for examples.')
 
 FLAGS = flags.FLAGS

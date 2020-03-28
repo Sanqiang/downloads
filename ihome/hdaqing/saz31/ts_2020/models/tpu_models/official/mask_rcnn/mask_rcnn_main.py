@@ -20,7 +20,7 @@ from __future__ import print_function
 
 from absl import flags
 from absl import logging
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import sys
 sys.path.insert(0, 'tpu/models')

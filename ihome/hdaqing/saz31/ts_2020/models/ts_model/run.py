@@ -26,7 +26,7 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200320",
+    "name", "20200322",
     "Name of experiment")
 
 flags.DEFINE_string(
@@ -51,7 +51,7 @@ flags.DEFINE_string(
 
 flags.DEFINE_string(
     "train_tfexample",
-    "/Users/sanqiang/git/ts/ts_2020_data/examples/shard_wikilarge_160.example",
+    "/Users/sanqiang/git/ts/text_simplification_data/example/shard_newsela_505.example",
     "The path pattern of train tf.Example files.")
 
 flags.DEFINE_integer(
@@ -83,7 +83,7 @@ flags.DEFINE_float(
     "lr", 0.001, "Learning rate.")
 
 flags.DEFINE_float(
-    "drop_keep_rate", 0.9, "Learning rate.")
+    "drop_keep_rate", 0.9, "dropout rate.")
 
 flags.DEFINE_integer(
     "beam_search_size", 10,
@@ -107,7 +107,7 @@ flags.DEFINE_string(
 
 # For control
 flags.DEFINE_string(
-    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce", #
+    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce", #:control:encoder:ppdb
     "choice of :")
 
 flags.DEFINE_integer(
@@ -215,7 +215,7 @@ flags.DEFINE_integer(
 
 flags.DEFINE_string(
     "infer_tfexample",
-    "/Users/sanqiang/git/ts/ts_2020_data/examples/shard_wikilarge_160.example",
+    "/Users/sanqiang/git/ts/text_simplification_data/example/shard_newsela_505.example",
     "The path pattern of train tf.Example files.")
 
 flags.DEFINE_string(
@@ -395,19 +395,18 @@ def model_fn_builder(data, init_ckpt_path=None):
                 mode=mode,
                 predictions={
                     'gen_trg_ids': outputs['gen_trg_ids'],
-                    'gen_trg_scores': outputs['gen_trg_scores']
-                                      if 'gen_trg_scores' not in outputs else outputs['gen_trg_ids'],
+                    'gen_trg_scores': outputs['gen_trg_scores'],
                     'src_ids': outputs['src_ids'],
                     'trg_ids': outputs['trg_ids'],
                     'control_ids': (outputs['control_ids']
-                                    if FLAGS.control_mode
-                                    else outputs['gen_trg_ids']), ## Just placeholder,
+                                    if 'ppdb' in FLAGS.control_mode
+                                    else tf.zeros_like(outputs['trg_ids'])), ## Just placeholder,
                     'control_vec': outputs['control_vec'] if "control_vec" in outputs else [0],
                     'src_syntax_ids': outputs['src_syntax_ids'],
                     'trg_syntax_ids': outputs['trg_syntax_ids']
-                                      if 'trg_syntax_ids' in outputs else outputs['src_syntax_ids'],
+                                      if 'trg_syntax_ids' in outputs else tf.zeros_like(outputs['trg_ids']),
                     'gen_trg_syntax_ids': outputs['gen_trg_syntax_ids']
-                                          if 'gen_trg_syntax_ids' in outputs else outputs['src_syntax_ids'],
+                                          if 'gen_trg_syntax_ids' in outputs else tf.zeros_like(outputs['trg_ids']),
                 })
 
         return output_spec
@@ -674,7 +673,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                 gen_trg_score, wandb_log_tmp = infer_worker(ckpt, "")
                 wandb_log.update(wandb_log_tmp)
             else:
-                for control_tag in ("rel", "sent_length", "word_length", "syntax", "split", "ppdb"):
+                for control_tag in ("syn_rel"):
                     if control_tag in FLAGS.control_mode:
                         infer_prefix = "%s_%s" % (control_tag, FLAGS.control_mode[control_tag])
                         gen_trg_score, wandb_log_tmp = infer_worker(ckpt, infer_prefix)
