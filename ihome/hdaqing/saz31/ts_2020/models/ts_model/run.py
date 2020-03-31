@@ -351,13 +351,27 @@ def model_fn_builder(data, init_ckpt_path=None):
             elif FLAGS.op == 'adadelta':
                 optimizer = tf.compat.v1.train.AdadeltaOptimizer(learning_rate)
             elif FLAGS.op == 'lamb':
-                optimizer = LAMBOptimizer(learning_rate)
+                optimizer = LAMBOptimizer(
+                    learning_rate=learning_rate,
+                    weight_decay_rate=0.01,
+                    beta_1=0.9,
+                    beta_2=0.999,
+                    epsilon=1e-6,
+                    exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
             else:
-                optimizer = LAMBOptimizer(learning_rate)
+                raise ValueError("Unknown optimizer.")
             if FLAGS.use_tpu:
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
 
-            train_op = tf.contrib.training.create_train_op(loss, optimizer)
+            # train_op = tf.contrib.training.create_train_op(loss, optimizer)
+            tvars = tf.trainable_variables()
+            grads = tf.gradients(
+                loss, tvars, colocate_gradients_with_ops=True)
+            (grads, _) = tf.clip_by_global_norm(grads, clip_norm=1.0)
+
+            train_op = optimizer.apply_gradients(
+                list(zip(grads, tvars)), global_step=global_step)
+
             new_global_step = global_step + 1
             train_op = tf.group(train_op, [global_step.assign(new_global_step)])
 
