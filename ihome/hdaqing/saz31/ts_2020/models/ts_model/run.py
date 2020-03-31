@@ -358,6 +358,7 @@ def model_fn_builder(data, init_ckpt_path=None):
                     beta_2=0.999,
                     epsilon=1e-6,
                     exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
+                print("Use LAMB optimizer.")
             else:
                 raise ValueError("Unknown optimizer.")
             if FLAGS.use_tpu:
