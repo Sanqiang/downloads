@@ -204,6 +204,22 @@ class TsGraph:
                  for o in range(eval_batch_size)], axis=0)
             self.shared_tensors['control_vec'] = control_vec
 
+    def classify_vec(self, encoder_evid, gt_vector):
+        encoder_evid = tf.stop_gradient(encoder_evid)
+        encoder_evid = tf.layers.dense(
+            encoder_evid,
+            self.flags.dimension,
+            activation=tf.nn.relu,
+            use_bias=True)
+        pred_vector = tf.layers.dense(
+            encoder_evid,
+            self.data.control_vec_len,
+            activation=tf.nn.relu,
+            use_bias=True)
+        loss_classify = tf.losses.absolute_difference(gt_vector, pred_vector)
+        return loss_classify, pred_vector
+
+
     def update_embedding(
             self, embedding, is_decoder=True):
         if self.data.control_vec_len <= 0:
@@ -373,18 +389,9 @@ class TsGraph:
 
                 if 'syntax_reduce' in self.flags.control_mode:
                     template_comp_ids = template_comp_ids[:, 1:, :]
-
-                    # print_op = tf.print("template_comp_ids output:", template_comp_ids, summarize=-1)
-                    # with tf.control_dependencies([print_op]):
-                    #     template_comp_ids = tf.identity(template_comp_ids)
-
                     features['template_comp_ids'] = template_comp_ids
 
                     template_simp_ids = template_simp_ids[:, 1:, :]
-
-                    # print_op = tf.print("template_simp_ids output:", template_simp_ids, summarize=-1)
-                    # with tf.control_dependencies([print_op]):
-                    #     template_simp_ids = tf.identity(template_simp_ids)
 
                     features['template_simp_ids'] = template_simp_ids
 
@@ -482,6 +489,15 @@ class TsGraph:
 
         outputs = {}
         outputs['src_ids'] = src_ids
+        if 'train_control' in self.flags.control_mode:
+            loss_classify, classify_vector = self.classify_vec(
+                tf.concat([self.shared_tensors['src_outputs'][:, 0, :],
+                           self.shared_tensors['control_outputs'][:, 0, :]], axis=-1),
+                self.shared_tensors['control_vec']
+            )
+            outputs['loss_classify'] = loss_classify
+            if not self.is_training:
+                self.shared_tensors['control_vec'] = classify_vector
 
         if 'bart' not in self.flags.control_mode:
             outputs["control_vec"] = self.shared_tensors['control_vec']
@@ -501,9 +517,6 @@ class TsGraph:
                  for o in range(batch_size)], axis=0)
             more_control_vec = tf.zeros(
                 [batch_size, self.flags.dimension % self.data.control_vec_len])
-            # if not self.is_training and self.flags.beam_search_size > 1:
-            #     more_control_vec = tf.zeros(
-            #         [batch_size * self.flags.beam_search_size, self.flags.dimension % self.data.control_vec_len])
             self.shared_tensors['control_vec'] = tf.expand_dims(
                 tf.concat([control_vec, more_control_vec], axis=1), axis=1)
 

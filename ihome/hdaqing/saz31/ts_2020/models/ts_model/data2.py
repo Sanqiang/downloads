@@ -109,8 +109,8 @@ class Data:
                 {'control_ids': tf.FixedLenFeature([self.flags.max_ppdb_len], tf.int64)})
 
         self.control_vec_len = 0
+        self.sent_control_vec_len, self.word_control_vec_len = 4, 3
         if 'control' in self.flags.control_mode:
-            self.sent_control_vec_len, self.word_control_vec_len = 4, 3
             self.control_vec_len = self.sent_control_vec_len + self.word_control_vec_len
             self.feature_set.update({
                 'sent_control_vec': tf.FixedLenFeature([self.sent_control_vec_len], tf.float32),
@@ -135,14 +135,11 @@ class Data:
         elif 'bert_vocab' in self.flags.model_mode:
             self.vocab = BertVocab(flags.bert_vocab_file)
 
-        # self.reserve_dimension = 0
-        # self.control_vec_dimension = self.flags.dimension
-        # if 'predict' in self.flags.control_mode:
-        #     self.reserve_dimension = self.flags.dimension // 4
-        #     self.control_vec_dimension = self.flags.dimension - self.reserve_dimension
+    def update_data_for_train(self):
+        pass
 
+    def update_data_for_eval(self):
         control_multiply = json.loads(self.flags.control_multiply)
-
         self.word_control_vec_multiply = [1.0] * self.word_control_vec_len
         if 'word_rel' in control_multiply:
             self.word_control_vec_multiply[0] = control_multiply['word_rel']
@@ -161,14 +158,6 @@ class Data:
         if 'split' in control_multiply:
             self.sent_control_vec_multiply[3] = control_multiply['split']
 
-    def update_data_for_train(self):
-        pass
-
-    def update_data_for_eval(self):
-        pass
-        # if self.flags.control_mode:
-        #     self.control_obj = ControlMethod(self.flags)
-
     def _decode_record(self, record, is_training):
         """Decodes a record to a TensorFlow example."""
         example = tf.parse_single_example(record, self.feature_set)
@@ -181,7 +170,7 @@ class Data:
                 t = tf.to_int32(t)
             example[name] = t
 
-            if True or not is_training:
+            if not is_training:
 
                 if name == 'sent_control_vec':
                     example[name] = example[name] * tf.constant(

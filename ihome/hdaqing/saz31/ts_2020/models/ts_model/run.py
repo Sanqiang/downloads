@@ -26,11 +26,11 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200323",
+    "name", "20200325",
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "train",
+    "mode", "infer",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -107,11 +107,11 @@ flags.DEFINE_string(
 
 # For control
 flags.DEFINE_string(
-    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce:control:encoder:ppdb", #:control:encoder:ppdb
+    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce:control:encoder:ppdb:train_control", #:control:encoder:ppdb
     "choice of :")
 
 flags.DEFINE_string(
-    "control_multiply", "{\"sent_length\":0.5}", #:control:encoder:ppdb
+    "control_multiply", "{}", #:control:encoder:ppdb
     "choice of :")
 
 flags.DEFINE_integer(
@@ -315,6 +315,10 @@ def model_fn_builder(data, init_ckpt_path=None):
                 loss += outputs['loss_guild_decoder']
                 scalars_summaries['loss_guild'] = outputs['loss_guild_decoder']
                 scalars_summaries['ppl_guild'] = tf.exp(outputs['perplexity_decoder'])
+            if 'train_control' in FLAGS.control_mode:
+                loss += outputs['loss_classify']
+                scalars_summaries['loss_classify'] = outputs['loss_classify']
+                scalars_summaries['ppl_classify'] = tf.exp(outputs['loss_classify'])
             scalars_summaries['loss'] = loss
 
             learning_rate = tf.constant(
