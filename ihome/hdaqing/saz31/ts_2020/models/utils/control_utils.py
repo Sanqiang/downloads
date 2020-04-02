@@ -356,14 +356,22 @@ class ControlMethod:
         for i in range(len(ori_wds)):
             unigram = ori_wds[i]
             if unigram in self.eval_mapper:
+                targets = []
                 for tar in sorted(self.eval_mapper[unigram],
                                   key=lambda wd: float(1000 * wd[1] + len(wd[0])), reverse=True):
                     tar_weight = lm.get_sents_score(comp.replace(unigram, tar[0]))
                     weight = tar_weight - ori_weight
                     if weight < 0:
-                        tar_wds.append(('%s' % (tar[0]), weight))
+                        targets.append((weight, tar[0]))
+                targets = sorted(targets)
+                print("%s=>%s" % (unigram, targets))
+                for tid, target in enumerate(targets):
+                    tar_wds.append(('%s' % (target[1]), target[0]))
+                    if tid == 4:
+                        break
 
             if i + 1 < len(ori_wds):
+                targets = []
                 bigram = ori_wds[i] + ' ' + ori_wds[1 + i]
                 if bigram in sorted(self.eval_mapper[bigram],
                                     key=lambda wd: float(1000 * wd[1] + len(wd[0])), reverse=True):
@@ -371,9 +379,17 @@ class ControlMethod:
                         tar_weight = lm.get_sents_score(comp.replace(bigram, tar[0]))
                         weight = tar_weight - ori_weight
                         if weight < 0:
-                            tar_wds.append(('%s' % (tar[0]), weight))
+                            targets.append((weight, tar[0]))
+                            # tar_wds.append(('%s' % (tar[0]), weight))
+                    targets = sorted(targets)
+                    print("%s=>%s" % (bigram, targets))
+                    for tid, target in enumerate(targets):
+                        tar_wds.append(('%s' % (target[1]), target[0]))
+                        if tid == 4:
+                            break
 
             if i + 2 < len(ori_wds):
+                targets = []
                 trigram = ori_wds[i] + ' ' + ori_wds[1 + i] + ' ' + ori_wds[2 + i]
                 if trigram in sorted(self.eval_mapper[trigram],
                                      key=lambda wd: float(1000 * wd[1] + len(wd[0])), reverse=True):
@@ -381,7 +397,15 @@ class ControlMethod:
                         tar_weight = lm.get_sents_score(comp.replace(trigram, tar[0]))
                         weight = tar_weight - ori_weight
                         if weight < 0:
-                            tar_wds.append(('%s' % (tar[0]), weight))
+                            targets.append((weight, tar[0]))
+                            # tar_wds.append(('%s' % (tar[0]), weight))
+                    targets = sorted(targets)
+
+                    print("%s=>%s" % (trigram, targets))
+                    for tid, target in enumerate(targets):
+                        tar_wds.append(('%s' % (target[1]), target[0]))
+                        if tid == 4:
+                            break
 
             tar_wds = list(set([wd for wd in tar_wds if wd[0] not in comp]))
             tar_wds.sort(key=lambda wd: float(1000 * wd[1] + len(wd[0])))
@@ -445,28 +469,38 @@ class ControlMethod:
                              ppdb=1.0,
                              lm=None):
         # Disable length syntax split when predict is enabled
-        vec = {}
+        word_vec, sent_vec = [], []
         extra_outputs = {}
 
         if "val" in self.flags.control_mode:
-            if "rel" in self.flags.control_mode:
-                vec["rel"] = rel * self.rel_score(comp, comp)
+            if "word_rel" in self.flags.control_mode:
+                word_vec.append(rel * self.word_rel_score(comp, comp))
             if "sent_length" in self.flags.control_mode:
-                vec["sent_length"] = sent_length * self.sent_length_score(comp, comp)
+                sent_vec.append(sent_length * self.sent_length_score(comp, comp))
             if "word_length" in self.flags.control_mode:
-                vec["word_length"] = word_length * self.word_length_score(comp, comp)
+                word_vec.append(word_length * self.word_length_score(comp, comp))
             if "syntax" in self.flags.control_mode:
                 syn_score, template_comp, template_simp, template_comp_full, template_simp_full = self.syntax_score(
                     comp, comp, comp_ori, comp_ori)
-                vec["syntax"] = syntax * syn_score
+                # template_simp_full_split = [tup.split('|') for tup in template_simp_full.split()]
+                # template_simp_full_flatten = [item for sublist in template_simp_full_split for item in sublist
+                #                               if item != 'ROOT']
+
+                template_comp_full_split = [tup.split('|') for tup in template_comp_full.split()]
+                template_comp_full_flatten = [item for sublist in template_comp_full_split for item in sublist
+                                              if item != 'ROOT']
+
+                # vec["syntax"] = syntax * syn_score
                 extra_outputs["template_simp"] = template_simp
                 extra_outputs["template_comp"] = template_comp
                 extra_outputs["template_simp_full"] = template_simp_full
                 extra_outputs["template_comp_full"] = template_comp_full
                 if "syn_length" in self.flags.control_mode:
-                    vec["syn_length"] = syn_length * self.syntax_length_score(template_comp, template_comp)
+                    sent_vec.append(syn_length * self.syntax_length_score(
+                        template_comp_full_split, template_comp_full_split))
                 if "syn_rel" in self.flags.control_mode:
-                    vec["syn_rel"] = syn_length * self.syntax_rel_score(template_comp, template_comp)
+                    sent_vec.append(syn_length * self.syntax_rel_score(
+                        template_comp_full_flatten, template_comp_full_flatten))
         # else:
         #     raise NotImplementedError("not done yet for get_control_vec_eval")
         #     if "rel" in self.flags.control_mode:
@@ -480,14 +514,14 @@ class ControlMethod:
         #         vec["syntax"] = syntax
 
         if "split" in self.flags.control_mode:
-            vec["split"] = split
+            sent_vec.append(split)
         if "ppdb" in self.flags.control_mode:
-            vec["ppdb"] = ppdb
+            word_vec.append(ppdb)
             ppdb_tars = self.get_rules_eval2(comp, lm)
             extra_outputs["external_inputs"] = ppdb_tars
             extra_outputs["rules"] = ppdb_tars  # Never used
 
-        return vec, extra_outputs
+        return sent_vec, word_vec, extra_outputs
 
     def get_control_vec(self, comp, simp, comp_ori, simp_ori):
         """Used for generate examples."""

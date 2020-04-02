@@ -1,5 +1,5 @@
 import os
-import numpy as np
+import json
 import tensorflow as tf
 from language_model.gpt2 import encoder
 from language_model.bert import tokenization
@@ -96,21 +96,6 @@ class GPT2Vocab:
         return len(self.enc.encoder) - len(self.more_tokens)
 
 
-def _decode_record(record, name_to_features):
-  """Decodes a record to a TensorFlow example."""
-  example = tf.parse_single_example(record, name_to_features)
-
-  # tf.Example only supports tf.int64, but the TPU only supports tf.int32.
-  # So cast all int64 to int32.
-  for name in list(example.keys()):
-    t = example[name]
-    if t.dtype == tf.int64:
-      t = tf.to_int32(t)
-    example[name] = t
-
-  return example
-
-
 class Data:
     def __init__(self, flags):
         self.flags = flags
@@ -156,6 +141,26 @@ class Data:
         #     self.reserve_dimension = self.flags.dimension // 4
         #     self.control_vec_dimension = self.flags.dimension - self.reserve_dimension
 
+        control_multiply = json.loads(self.flags.control_multiply)
+
+        self.word_control_vec_multiply = [1.0] * self.word_control_vec_len
+        if 'word_rel' in control_multiply:
+            self.word_control_vec_multiply[0] = control_multiply['word_rel']
+        if 'word_length' in control_multiply:
+            self.word_control_vec_multiply[1] = control_multiply['word_length']
+        if 'ppdb' in control_multiply:
+            self.word_control_vec_multiply[2] = control_multiply['ppdb']
+
+        self.sent_control_vec_multiply = [1.0] * self.sent_control_vec_len
+        if 'sent_length' in control_multiply:
+            self.sent_control_vec_multiply[0] = control_multiply['sent_length']
+        if 'syn_length' in control_multiply:
+            self.sent_control_vec_multiply[1] = control_multiply['syn_length']
+        if 'syn_rel' in control_multiply:
+            self.sent_control_vec_multiply[2] = control_multiply['syn_rel']
+        if 'split' in control_multiply:
+            self.sent_control_vec_multiply[3] = control_multiply['split']
+
     def update_data_for_train(self):
         pass
 
@@ -163,6 +168,31 @@ class Data:
         pass
         # if self.flags.control_mode:
         #     self.control_obj = ControlMethod(self.flags)
+
+    def _decode_record(self, record, is_training):
+        """Decodes a record to a TensorFlow example."""
+        example = tf.parse_single_example(record, self.feature_set)
+
+        # tf.Example only supports tf.int64, but the TPU only supports tf.int32.
+        # So cast all int64 to int32.
+        for name in list(example.keys()):
+            t = example[name]
+            if t.dtype == tf.int64:
+                t = tf.to_int32(t)
+            example[name] = t
+
+            if True or not is_training:
+
+                if name == 'sent_control_vec':
+                    example[name] = example[name] * tf.constant(
+                        self.sent_control_vec_multiply, tf.float32)
+
+                if name == 'word_control_vec':
+
+                    example[name] = example[name] * tf.constant(
+                        self.word_control_vec_multiply, tf.float32)
+
+        return example
 
     def get_input_fn(self, is_training, input_files, num_cpu_threads,
                      uniform_data=False, max_count=16384):
@@ -199,10 +229,11 @@ class Data:
 
             d = d.apply(
                 tf.data.experimental.map_and_batch(
-                    lambda record: _decode_record(record, self.feature_set),
+                    lambda record: self._decode_record(record, is_training),
                     batch_size=batch_size,
                     num_parallel_batches=num_cpu_threads,
                     drop_remainder=is_training))
+
             return d
 
         return input_fn

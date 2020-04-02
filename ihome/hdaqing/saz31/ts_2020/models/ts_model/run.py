@@ -26,11 +26,11 @@ flags.DEFINE_string(
     "Name of experiment")
 
 flags.DEFINE_string(
-    "name", "20200322",
+    "name", "20200323",
     "Name of experiment")
 
 flags.DEFINE_string(
-    "mode", "infer",
+    "mode", "train",
     "choice of train/infer/predict")
 
 flags.DEFINE_string(
@@ -107,7 +107,11 @@ flags.DEFINE_string(
 
 # For control
 flags.DEFINE_string(
-    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce", #:control:encoder:ppdb
+    "control_mode", "scatter_ppdb:syntax_gen:val:syntax_gen2:syntax_reduce:control:encoder:ppdb", #:control:encoder:ppdb
+    "choice of :")
+
+flags.DEFINE_string(
+    "control_multiply", "{\"sent_length\":0.5}", #:control:encoder:ppdb
     "choice of :")
 
 flags.DEFINE_integer(
@@ -610,7 +614,7 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
             reports.append('\n'.join(report))
 
             cnt += 1
-            if cnt > 10:
+            if cnt > 32:
                 print('\n'.join(reports))
                 return
 
@@ -688,17 +692,19 @@ def infer(data, estimator, log_dir, model_dir, result_dir, tmp_dir,
                 gen_trg_score, wandb_log_tmp = infer_worker(ckpt, "")
                 wandb_log.update(wandb_log_tmp)
             else:
-                for control_tag in ("syn_rel"):
-                    if control_tag in FLAGS.control_mode:
-                        infer_prefix = "%s_%s" % (control_tag, FLAGS.control_mode[control_tag])
-                        gen_trg_score, wandb_log_tmp = infer_worker(ckpt, infer_prefix)
-                        wandb_log.update(wandb_log_tmp)
-
-                        FLAGS.control_mode[control_tag] /= 2
-                        infer_prefix = "%s_%s" % (control_tag, FLAGS.control_mode[control_tag])
-                        _, wandb_log_tmp = infer_worker(ckpt, infer_prefix)
-                        wandb_log.update(wandb_log_tmp)
-                        FLAGS.control_mode[control_tag] *= 2
+                gen_trg_score, wandb_log_tmp = infer_worker(ckpt, "")
+                wandb_log.update(wandb_log_tmp)
+                # for control_tag in ("syn_rel"):
+                #     if control_tag in FLAGS.control_mode:
+                #         infer_prefix = "%s_%s" % (control_tag, FLAGS.control_mode[control_tag])
+                #         gen_trg_score, wandb_log_tmp = infer_worker(ckpt, infer_prefix)
+                #         wandb_log.update(wandb_log_tmp)
+                #
+                #         FLAGS.control_mode[control_tag] /= 2
+                #         infer_prefix = "%s_%s" % (control_tag, FLAGS.control_mode[control_tag])
+                #         _, wandb_log_tmp = infer_worker(ckpt, infer_prefix)
+                #         wandb_log.update(wandb_log_tmp)
+                #         FLAGS.control_mode[control_tag] *= 2
 
             # FLAGS.control_mode["length"] = 0.5
             # FLAGS.control_mode["syntax"] = 1.0
