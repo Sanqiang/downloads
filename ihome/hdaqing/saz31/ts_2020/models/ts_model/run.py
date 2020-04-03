@@ -277,8 +277,7 @@ def model_fn_builder(data, init_ckpt_path=None):
                     scaffold_fn = tpu_scaffold
                 else:
                     tf.train.init_from_checkpoint(FLAGS.bert_ckpt_file, assignment_map)
-                for var in tvars:
-                    print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
+
                 tf.logging.info('Init BERT from %s' % FLAGS.bert_ckpt_file)
             elif init_ckpt_path:
                 if tf.gfile.IsDirectory(init_ckpt_path):
@@ -291,8 +290,6 @@ def model_fn_builder(data, init_ckpt_path=None):
                 else:
                     (assignment_map, initialized_variable_names
                      ) = restore_utils.get_assignment_map_from_checkpoint(tvars, init_ckpt_path)
-                for var in tvars:
-                    print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
                 if FLAGS.use_tpu:
 
                     def tpu_scaffold():
@@ -303,6 +300,7 @@ def model_fn_builder(data, init_ckpt_path=None):
                 else:
                     tf.train.init_from_checkpoint(init_ckpt_path, assignment_map)
                 tf.logging.info('Init from %s' % init_ckpt_path)
+
             for var in tvars:
                 init_string = ""
                 if var.name in initialized_variable_names:
