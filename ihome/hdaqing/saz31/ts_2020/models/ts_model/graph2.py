@@ -287,13 +287,13 @@ class TsGraph:
             control_flatten_bias = None
             if 'control_vec' in self.shared_tensors and self.flags.control_mode:
                 if "flatten" not in self.flags.control_mode:
-                    if 'bert' in self.flags.model_mode:
-                        # In BERT, update  trg emb inside bert
-                        trg_emb_fn = lambda trg_emb: self.update_embedding(
-                            trg_emb,)
-                    else:
-                        trg_emb = self.update_embedding(
-                            trg_emb)
+                    # if 'bert' in self.flags.model_mode:
+                    #     # In BERT, update  trg emb inside bert
+                    #     trg_emb_fn = lambda trg_emb: self.update_embedding(
+                    #         trg_emb,)
+                    # else:
+                    trg_emb = self.update_embedding(
+                        trg_emb)
                 else:
                     control_flatten_outputs = self.shared_tensors['control_vec']
                     control_flatten_bias = tf.zeros([1, 1, 1, 1])
@@ -304,58 +304,58 @@ class TsGraph:
                 control_bias = self.shared_tensors['control_bias']
 
             trg_length = tf.shape(trg_emb)[1]
-            if 'gpt2' in self.flags.model_mode:
-                trg_outputs = model.gpt2_decoder(
-                    self.hparams, trg_emb,
-                    encoder_outputs=self.shared_tensors['src_outputs'],
-                    encoder_bias=self.shared_tensors['src_bias'])
-            elif 't2t' in self.flags.model_mode:
-                trg_self_attention_bias = common_attention.attention_bias_lower_triangle(
-                    trg_length)
-                if 'syntax_gen' not in self.flags.control_mode:
+            # if 'gpt2' in self.flags.model_mode:
+            #     trg_outputs = model.gpt2_decoder(
+            #         self.hparams, trg_emb,
+            #         encoder_outputs=self.shared_tensors['src_outputs'],
+            #         encoder_bias=self.shared_tensors['src_bias'])
+            # elif 't2t' in self.flags.model_mode:
+            trg_self_attention_bias = common_attention.attention_bias_lower_triangle(
+                trg_length)
+            if 'syntax_gen' not in self.flags.control_mode:
+                self.shared_tensors['template_simp_outputs'] = None
+                self.shared_tensors['template_simp_bias'] = None
+            if self.is_training and 'syntax_gen' in self.flags.control_mode:
+                if 'template_simp_outputs' not in self.shared_tensors:
+                    print('Guild Decoder')
                     self.shared_tensors['template_simp_outputs'] = None
                     self.shared_tensors['template_simp_bias'] = None
-                if self.is_training and 'syntax_gen' in self.flags.control_mode:
-                    if 'template_simp_outputs' not in self.shared_tensors:
-                        print('Guild Decoder')
-                        self.shared_tensors['template_simp_outputs'] = None
-                        self.shared_tensors['template_simp_bias'] = None
-                    else:
-                        print('Real Decoder')
-                        if self.flags.drop_keep_rate < 1:
-                            self.shared_tensors['template_simp_outputs'] = tf.nn.dropout(
-                                self.shared_tensors['template_simp_outputs'], keep_prob=self.flags.drop_keep_rate)
-                trg_outputs = transformer.transformer_decoder_parallel(
-                    decoder_input=trg_emb,
-                    decoder_self_attention_bias=trg_self_attention_bias,
-                    encoder_output=self.shared_tensors['src_outputs'],
-                    encoder_decoder_attention_bias=self.shared_tensors['src_bias'],
-                    hparams=self.hparams,
-                    external_output=control_outputs,
-                    external_bias=control_bias,
-                    external_output2=control_flatten_outputs,
-                    external_bias2=control_flatten_bias,
-                    external_output3=self.shared_tensors['template_simp_outputs'],
-                    external_bias3=self.shared_tensors['template_simp_bias'],
-                    name='trg_decoder',
-                    shared_weight='shared' in self.flags.t2t_mode)
-            elif 'bert' in self.flags.model_mode:
-                trg_mask = common_attention.attention_bias_bert(
-                    trg_length, -1, 0)
-                bert_model = BertModel(
-                    config=BertConfig.from_json_file(self.flags.bert_config_file),
-                    is_training=self.is_training,
-                    input_ids=trg_input_ids,
-                    input_mask=trg_mask,
-                    embeddings=self.shared_tensors['word_embedding_table'],
-                    encoder_ids=self.shared_tensors['src_ids'],
-                    encoder_outpus=self.shared_tensors['src_outputs'],
-                    encoder_mask=1.0 - self.shared_tensors['src_mask'],
-                    trg_emb_fn=trg_emb_fn
-                )
-                trg_outputs = bert_model.get_sequence_output()
-            else:
-                raise ValueError('model_mode not known')
+                else:
+                    print('Real Decoder')
+                    if self.flags.drop_keep_rate < 1:
+                        self.shared_tensors['template_simp_outputs'] = tf.nn.dropout(
+                            self.shared_tensors['template_simp_outputs'], keep_prob=self.flags.drop_keep_rate)
+            trg_outputs = transformer.transformer_decoder_parallel(
+                decoder_input=trg_emb,
+                decoder_self_attention_bias=trg_self_attention_bias,
+                encoder_output=self.shared_tensors['src_outputs'],
+                encoder_decoder_attention_bias=self.shared_tensors['src_bias'],
+                hparams=self.hparams,
+                external_output=control_outputs,
+                external_bias=control_bias,
+                external_output2=control_flatten_outputs,
+                external_bias2=control_flatten_bias,
+                external_output3=self.shared_tensors['template_simp_outputs'],
+                external_bias3=self.shared_tensors['template_simp_bias'],
+                name='trg_decoder',
+                shared_weight='shared' in self.flags.t2t_mode)
+            # elif 'bert' in self.flags.model_mode:
+            #     trg_mask = common_attention.attention_bias_bert(
+            #         trg_length, -1, 0)
+            #     bert_model = BertModel(
+            #         config=BertConfig.from_json_file(self.flags.bert_config_file),
+            #         is_training=self.is_training,
+            #         input_ids=trg_input_ids,
+            #         input_mask=trg_mask,
+            #         embeddings=self.shared_tensors['word_embedding_table'],
+            #         encoder_ids=self.shared_tensors['src_ids'],
+            #         encoder_outpus=self.shared_tensors['src_outputs'],
+            #         encoder_mask=1.0 - self.shared_tensors['src_mask'],
+            #         trg_emb_fn=trg_emb_fn
+            #     )
+            #     trg_outputs = bert_model.get_sequence_output()
+            # else:
+            #     raise ValueError('model_mode not known')
             return trg_outputs
 
     def build(self, features):
@@ -445,15 +445,15 @@ class TsGraph:
                 control_bias = common_attention.attention_bias_ignore_padding(control_mask)
                 control_embs = self._embedding_fn(control_ids)
 
-                if 'gpt2' in self.flags.model_mode:
-                    control_outputs = model.gpt2_encoder(
-                        self.hparams, control_embs, encoder_bias=control_bias)
-                elif 't2t' in self.flags.model_mode or 'bert' in self.flags.model_mode:
-                    control_outputs = transformer.transformer_encoder(
-                        control_embs, control_bias, self.control_hparams, name='control_encoder',
-                        shared_weight='shared' in self.flags.t2t_mode)
-                else:
-                    raise ValueError('model_mode not known.')
+                # if 'gpt2' in self.flags.model_mode:
+                #     control_outputs = model.gpt2_encoder(
+                #         self.hparams, control_embs, encoder_bias=control_bias)
+                # elif 't2t' in self.flags.model_mode or 'bert' in self.flags.model_mode:
+                control_outputs = transformer.transformer_encoder(
+                    control_embs, control_bias, self.control_hparams, name='control_encoder',
+                    shared_weight='shared' in self.flags.t2t_mode)
+                # else:
+                #     raise ValueError('model_mode not known.')
                 self.shared_tensors['control_outputs'] = control_outputs
                 self.shared_tensors['control_bias'] = control_bias
 

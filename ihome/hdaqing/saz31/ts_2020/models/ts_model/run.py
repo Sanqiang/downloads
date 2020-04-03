@@ -266,14 +266,14 @@ def model_fn_builder(data, init_ckpt_path=None):
                     tvars, FLAGS.gpt2_ckpt_path)
                 tf.train.init_from_checkpoint(FLAGS.gpt2_ckpt_path, assignment_map)
                 tf.logging.info('Init BERT from %s' % FLAGS.gpt2_ckpt_path)
-            elif 'bert' in FLAGS.model_mode and FLAGS.bert_ckpt_file:
+            if 'bert' in FLAGS.model_mode and FLAGS.bert_ckpt_file:
                 assignment_map, initialized_variable_names = restore_utils.get_bert_assignment_map_from_checkpont(
                     tvars, FLAGS.bert_ckpt_file)
                 tf.train.init_from_checkpoint(FLAGS.bert_ckpt_file, assignment_map)
                 for var in tvars:
                     print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
                 tf.logging.info('Init GPT2 from %s' % FLAGS.gpt2_ckpt_path)
-            elif init_ckpt_path:
+            if init_ckpt_path:
                 if tf.gfile.IsDirectory(init_ckpt_path):
                     init_ckpt_path_find = os.path.join(
                         init_ckpt_path,
