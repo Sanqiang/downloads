@@ -497,7 +497,12 @@ class TsGraph:
             )
             outputs['loss_classify'] = loss_classify
             if not self.is_training:
-                self.shared_tensors['control_vec'] = classify_vector
+                control_vec_multiply = tf.concat(
+                    [features['sent_control_vec_multiply'],
+                     features['word_control_vec_multiply']], axis=1)
+                print("Time control vector %s*%s" % (classify_vector, control_vec_multiply))
+                self.shared_tensors['control_vec'] = classify_vector * control_vec_multiply
+
 
         if 'bart' not in self.flags.control_mode:
             outputs["control_vec"] = self.shared_tensors['control_vec']
@@ -520,13 +525,6 @@ class TsGraph:
             self.shared_tensors['control_vec'] = tf.expand_dims(
                 tf.concat([control_vec, more_control_vec], axis=1), axis=1)
 
-            # print_op = tf.print("Debug output:", self.shared_tensors['control_vec'], summarize=-1)
-            # with tf.control_dependencies([print_op]):
-            #     self.shared_tensors['control_vec'] = tf.identity(self.shared_tensors['control_vec'])
-            # else:
-            # score = tf.expand_dims(self.shared_tensors['control_vec'], axis=-1)
-            # score = tf.tile(score, [1, 1, self.flags.dimension])
-            # self.shared_tensors['control_vec'] = score
         if "encoder" in self.flags.control_mode:
             src_outputs = self.update_embedding(src_outputs, is_decoder=False)
             self.shared_tensors['src_outputs'] = src_outputs

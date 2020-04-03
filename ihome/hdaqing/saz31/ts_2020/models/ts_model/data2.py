@@ -170,16 +170,11 @@ class Data:
                 t = tf.to_int32(t)
             example[name] = t
 
-            if not is_training:
-
-                if name == 'sent_control_vec':
-                    example[name] = example[name] * tf.constant(
-                        self.sent_control_vec_multiply, tf.float32)
-
-                if name == 'word_control_vec':
-
-                    example[name] = example[name] * tf.constant(
-                        self.word_control_vec_multiply, tf.float32)
+        if not is_training:
+            example['sent_control_vec_multiply'] = tf.constant(
+                self.sent_control_vec_multiply, tf.float32)
+            example['word_control_vec_multiply'] = tf.constant(
+                    self.word_control_vec_multiply, tf.float32)
 
         return example
 
