@@ -264,16 +264,23 @@ def model_fn_builder(data, init_ckpt_path=None):
             if 'gpt2' in FLAGS.model_mode and FLAGS.gpt2_ckpt_path:
                 assignment_map = restore_utils.get_gpt2_assignment_map_from_checkpoint(
                     tvars, FLAGS.gpt2_ckpt_path)
-                tf.train.init_from_checkpoint(FLAGS.gpt2_ckpt_path, assignment_map)
                 tf.logging.info('Init GPT2 from %s' % FLAGS.gpt2_ckpt_path)
-            if 'bert' in FLAGS.model_mode and FLAGS.bert_ckpt_file:
+            elif 'bert' in FLAGS.model_mode and FLAGS.bert_ckpt_file:
                 assignment_map, initialized_variable_names = restore_utils.get_bert_assignment_map_from_checkpont(
                     tvars, FLAGS.bert_ckpt_file)
-                tf.train.init_from_checkpoint(FLAGS.bert_ckpt_file, assignment_map)
+                if FLAGS.use_tpu:
+
+                    def tpu_scaffold():
+                        tf.train.init_from_checkpoint(FLAGS.bert_ckpt_file, assignment_map)
+                        return tf.train.Scaffold()
+
+                    scaffold_fn = tpu_scaffold
+                else:
+                    tf.train.init_from_checkpoint(FLAGS.bert_ckpt_file, assignment_map)
                 for var in tvars:
                     print('%s\t%s' % (var, '***INIT***' if var.name in initialized_variable_names else '***RAND***'))
                 tf.logging.info('Init BERT from %s' % FLAGS.bert_ckpt_file)
-            if init_ckpt_path:
+            elif init_ckpt_path:
                 if tf.gfile.IsDirectory(init_ckpt_path):
                     init_ckpt_path_find = os.path.join(
                         init_ckpt_path,
